@@ -4,11 +4,18 @@
   "description": "A prebuilt version of devtools-frontend so you (I) don't have to muck about with depot_tools",
   "main": "index.js",
   "scripts": {
+    "update": "git submodule foreach git pull origin master",
+    "config": "gclient config --name \"devtools-frontend\" --unmanaged git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git",
+    "sync": "gclient sync",
+    "build": "cd devtools-frontend && gn gen out/Default && autoninja -C out/Default"
   },
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git"
   },
+  "files": [
+    "devtools-frontend/out/Default/gen/**"
+  ],
   "author": "Issac Gerges",
   "license": "SEE LICENSE IN devtools-frontend",
   "bugs": {
