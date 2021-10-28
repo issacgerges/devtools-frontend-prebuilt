@@ -7,15 +7,12 @@
     "update": "git submodule foreach git pull origin master",
     "config": "gclient config --name \"devtools-frontend\" --unmanaged git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git",
     "sync": "gclient sync",
-    "build": "cd devtools-frontend && gn gen out/Default && autoninja -C out/Default"
+    "build": "cd devtools-frontend && gn gen out/Default && autoninja -C out/Default && cp -r out/Default/gen/front_end out/Default/gen/extension-api out/Default/gen/inspector_overlay out/Default/gen/scripts .."
   },
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git"
   },
-  "files": [
-    "devtools-frontend/out/Default/gen/**"
-  ],
   "author": "Issac Gerges",
   "license": "SEE LICENSE IN devtools-frontend",
   "bugs": {
