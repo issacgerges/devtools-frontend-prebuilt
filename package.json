@@ -1,0 +1,18 @@
+{
+  "name": "devtools-frontend-prebuilt",
+  "version": "1.0.0",
+  "description": "A prebuilt version of devtools-frontend so you (I) don't have to muck about with depot_tools",
+  "main": "index.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git"
+  },
+  "author": "Issac Gerges",
+  "license": "SEE LICENSE IN devtools-frontend",
+  "bugs": {
+    "url": "https://github.com/issacgerges/devtools-frontend-prebuilt/issues"
+  },
+  "homepage": "https://github.com/issacgerges/devtools-frontend-prebuilt#readme"
+}
