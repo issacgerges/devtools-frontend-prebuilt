@@ -1,0 +1,1 @@
+console.log("This module should not be imported, to use it, import files directly from node_modules/devtools-frontend-prebuilt")
