@@ -3,3 +3,4 @@
 .gclient
 .gclient_entries
 devtools-frontend/
+node_modules/
