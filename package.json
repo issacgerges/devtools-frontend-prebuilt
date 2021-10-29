@@ -1,12 +1,13 @@
 {
   "name": "devtools-frontend-prebuilt",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A prebuilt version of devtools-frontend so you (I) don't have to muck about with depot_tools",
   "main": "index.js",
   "scripts": {
     "update": "git submodule foreach git pull origin master",
     "config": "gclient config --name \"devtools-frontend\" --unmanaged git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git",
-    "build": "node build.js"
+    "build": "node build.js",
+    "bump": "yarn version"
   },
   "repository": {
     "type": "git",
