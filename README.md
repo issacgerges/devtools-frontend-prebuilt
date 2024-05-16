@@ -10,6 +10,5 @@ This module contains a zero dependency prebuilt version of devtools-frontend.
 ```
 yarn update
 yarn configure
-yarn sync
 yarn make
 ```
