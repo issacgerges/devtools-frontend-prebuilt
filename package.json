@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "update": "git submodule foreach git pull origin main",
-    "config": "gclient config --name \"devtools-frontend\" --unmanaged git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git",
+    "configure": "gclient config --name \"devtools-frontend\" --unmanaged git+ssh://git@github.com/issacgerges/devtools-frontend-prebuilt.git",
     "build": "node build.js",
     "bump": "yarn version"
   },
