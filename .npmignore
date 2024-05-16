@@ -1,3 +1,9 @@
 DEPS
 .gitmodules
 devtools-frontend
+.gclient
+.gclient_entries
+.gclient_previous_sync_commits
+.gcs_entries
+build.js
+.cipd
