@@ -5,346 +5,354 @@ import * as Common from '../common/common.js';
 import * as i18n from '../i18n/i18n.js';
 const UIStrings = {
     /**
-    *@description Title of a setting under the Console category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Console category that can be invoked through the Command Menu
+     */
     preserveLogUponNavigation: 'Preserve log upon navigation',
     /**
-    *@description Title of a setting under the Console category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Console category that can be invoked through the Command Menu
+     */
     doNotPreserveLogUponNavigation: 'Do not preserve log upon navigation',
     /**
-    *@description Text for pausing the debugger on exceptions
-    */
+     *@description Text for pausing the debugger on exceptions
+     */
     pauseOnExceptions: 'Pause on exceptions',
     /**
-    *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
+     */
     doNotPauseOnExceptions: 'Do not pause on exceptions',
     /**
-    *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
+     */
     disableJavascript: 'Disable JavaScript',
     /**
-    *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
+     */
     enableJavascript: 'Enable JavaScript',
     /**
-    *@description Title of a setting under the Debugger category in Settings
-    */
+     *@description Title of a setting under the Debugger category in Settings
+     */
     disableAsyncStackTraces: 'Disable async stack traces',
     /**
-    *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
+     */
     doNotCaptureAsyncStackTraces: 'Do not capture async stack traces',
     /**
-    *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Debugger category that can be invoked through the Command Menu
+     */
     captureAsyncStackTraces: 'Capture async stack traces',
     /**
-    *@description Text to show the measuring rulers on the target
-    */
-    showRulers: 'Show rulers',
+     *@description Text of a setting that  turn on the measuring rulers when hover over a target
+     */
+    showRulersOnHover: 'Show rulers on hover',
     /**
-    *@description Title of a setting that turns on grid area name labels
-    */
+     *@description Text of a setting that do turn off the measuring rulers when hover over a target
+     */
+    doNotShowRulersOnHover: 'Do not show rulers on hover',
+    /**
+     *@description Title of a setting that turns on grid area name labels
+     */
     showAreaNames: 'Show area names',
     /**
-    *@description Title of a setting under the Grid category that turns CSS Grid Area highlighting on
-    */
+     *@description Title of a setting under the Grid category that turns CSS Grid Area highlighting on
+     */
     showGridNamedAreas: 'Show grid named areas',
     /**
-    *@description Title of a setting under the Grid category that turns CSS Grid Area highlighting off
-    */
+     *@description Title of a setting under the Grid category that turns CSS Grid Area highlighting off
+     */
     doNotShowGridNamedAreas: 'Do not show grid named areas',
     /**
-    *@description Title of a setting that turns on grid track size labels
-    */
+     *@description Title of a setting that turns on grid track size labels
+     */
     showTrackSizes: 'Show track sizes',
     /**
-    *@description Title for CSS Grid tooling option
-    */
+     *@description Title for CSS Grid tooling option
+     */
     showGridTrackSizes: 'Show grid track sizes',
     /**
-    *@description Title for CSS Grid tooling option
-    */
+     *@description Title for CSS Grid tooling option
+     */
     doNotShowGridTrackSizes: 'Do not show grid track sizes',
     /**
-    *@description Title of a setting that turns on grid extension lines
-    */
+     *@description Title of a setting that turns on grid extension lines
+     */
     extendGridLines: 'Extend grid lines',
     /**
-    *@description Title of a setting that turns off the grid extension lines
-    */
+     *@description Title of a setting that turns off the grid extension lines
+     */
     doNotExtendGridLines: 'Do not extend grid lines',
     /**
-    *@description Title of a setting that turns on grid line labels
-    */
+     *@description Title of a setting that turns on grid line labels
+     */
     showLineLabels: 'Show line labels',
     /**
-    *@description Title of a setting that turns off the grid line labels
-    */
+     *@description Title of a setting that turns off the grid line labels
+     */
     hideLineLabels: 'Hide line labels',
     /**
-    *@description Title of a setting that turns on grid line number labels
-    */
+     *@description Title of a setting that turns on grid line number labels
+     */
     showLineNumbers: 'Show line numbers',
     /**
-    *@description Title of a setting that turns on grid line name labels
-    */
+     *@description Title of a setting that turns on grid line name labels
+     */
     showLineNames: 'Show line names',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     showPaintFlashingRectangles: 'Show paint flashing rectangles',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     hidePaintFlashingRectangles: 'Hide paint flashing rectangles',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     showLayoutShiftRegions: 'Show layout shift regions',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     hideLayoutShiftRegions: 'Hide layout shift regions',
     /**
-    *@description Text to highlight the rendering frames for ads
-    */
+     *@description Text to highlight the rendering frames for ads
+     */
     highlightAdFrames: 'Highlight ad frames',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     doNotHighlightAdFrames: 'Do not highlight ad frames',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     showLayerBorders: 'Show layer borders',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     hideLayerBorders: 'Hide layer borders',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
     showCoreWebVitalsOverlay: 'Show Core Web Vitals overlay',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
     hideCoreWebVitalsOverlay: 'Hide Core Web Vitals overlay',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     showFramesPerSecondFpsMeter: 'Show frames per second (FPS) meter',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     hideFramesPerSecondFpsMeter: 'Hide frames per second (FPS) meter',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     showScrollPerformanceBottlenecks: 'Show scroll performance bottlenecks',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     hideScrollPerformanceBottlenecks: 'Hide scroll performance bottlenecks',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
-    showHittestBorders: 'Show hit-test borders',
-    /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
-    hideHittestBorders: 'Hide hit-test borders',
-    /**
-    *@description Title of a Rendering setting that can be invoked through the Command Menu
-    */
+     *@description Title of a Rendering setting that can be invoked through the Command Menu
+     */
     emulateAFocusedPage: 'Emulate a focused page',
     /**
-    *@description Title of a Rendering setting that can be invoked through the Command Menu
-    */
+     *@description Title of a Rendering setting that can be invoked through the Command Menu
+     */
     doNotEmulateAFocusedPage: 'Do not emulate a focused page',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     doNotEmulateCssMediaType: 'Do not emulate CSS media type',
     /**
-    *@description A drop-down menu option to do not emulate css media type
-    */
+     *@description A drop-down menu option to do not emulate css media type
+     */
     noEmulation: 'No emulation',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     emulateCssPrintMediaType: 'Emulate CSS print media type',
     /**
-    *@description A drop-down menu option to emulate css print media type
-    */
+     *@description A drop-down menu option to emulate css print media type
+     */
     print: 'print',
     /**
-    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
+     */
     emulateCssScreenMediaType: 'Emulate CSS screen media type',
     /**
-    *@description A drop-down menu option to emulate css screen media type
-    */
+     *@description A drop-down menu option to emulate css screen media type
+     */
     screen: 'screen',
     /**
-    *@description A tag of Emulate CSS screen media type setting that can be searched in the command menu
-    */
+     *@description A tag of Emulate CSS screen media type setting that can be searched in the command menu
+     */
     query: 'query',
     /**
-    *@description Title of a setting under the Rendering drawer
-    */
+     *@description Title of a setting under the Rendering drawer
+     */
     emulateCssMediaType: 'Emulate CSS media type',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    *@example {prefers-color-scheme} PH1
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     *@example {prefers-color-scheme} PH1
+     */
     doNotEmulateCss: 'Do not emulate CSS {PH1}',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    *@example {prefers-color-scheme: light} PH1
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     *@example {prefers-color-scheme: light} PH1
+     */
     emulateCss: 'Emulate CSS {PH1}',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    *@example {prefers-color-scheme} PH1
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     *@example {prefers-color-scheme} PH1
+     */
     emulateCssMediaFeature: 'Emulate CSS media feature {PH1}',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
     doNotEmulateAnyVisionDeficiency: 'Do not emulate any vision deficiency',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
     emulateBlurredVision: 'Emulate blurred vision',
     /**
-    *@description Name of a vision deficiency that can be emulated via the Rendering drawer
-    */
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
+    emulateReducedContrast: 'Emulate reduced contrast',
+    /**
+     *@description Name of a vision deficiency that can be emulated via the Rendering drawer
+     */
     blurredVision: 'Blurred vision',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
-    emulateProtanopia: 'Emulate protanopia',
+     *@description Name of a vision deficiency that can be emulated via the Rendering drawer
+     */
+    reducedContrast: 'Reduced contrast',
     /**
-    *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
-    */
-    protanopia: 'Protanopia',
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
+    emulateProtanopia: 'Emulate protanopia (no red)',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
-    emulateDeuteranopia: 'Emulate deuteranopia',
+     *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
+     */
+    protanopia: 'Protanopia (no red)',
     /**
-    *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
-    */
-    deuteranopia: 'Deuteranopia',
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
+    emulateDeuteranopia: 'Emulate deuteranopia (no green)',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
-    emulateTritanopia: 'Emulate tritanopia',
+     *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
+     */
+    deuteranopia: 'Deuteranopia (no green)',
     /**
-    *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
-    */
-    tritanopia: 'Tritanopia',
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
+    emulateTritanopia: 'Emulate tritanopia (no blue)',
     /**
-    *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-    */
-    emulateAchromatopsia: 'Emulate achromatopsia',
+     *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
+     */
+    tritanopia: 'Tritanopia (no blue)',
     /**
-    *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
-    */
-    achromatopsia: 'Achromatopsia',
+     *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
+     */
+    emulateAchromatopsia: 'Emulate achromatopsia (no color)',
     /**
-    *@description Title of a setting under the Rendering drawer
-    */
+     *@description Name of a color vision deficiency that can be emulated via the Rendering drawer
+     */
+    achromatopsia: 'Achromatopsia (no color)',
+    /**
+     *@description Title of a setting under the Rendering drawer
+     */
     emulateVisionDeficiencies: 'Emulate vision deficiencies',
     /**
-    *@description Text that refers to disabling local fonts
-    */
+     *@description Text that refers to disabling local fonts
+     */
     disableLocalFonts: 'Disable local fonts',
     /**
-    *@description Text that refers to enabling local fonts
-    */
+     *@description Text that refers to enabling local fonts
+     */
     enableLocalFonts: 'Enable local fonts',
     /**
-    *@description Title of a setting that disables AVIF format
-    */
+     *@description Title of a setting that disables AVIF format
+     */
     disableAvifFormat: 'Disable `AVIF` format',
     /**
-    *@description Title of a setting that enables AVIF format
-    */
+     *@description Title of a setting that enables AVIF format
+     */
     enableAvifFormat: 'Enable `AVIF` format',
     /**
-    *@description Title of a setting that disables JPEG XL format
-    */
-    disableJpegXlFormat: 'Disable `JPEG XL` format',
-    /**
-    *@description Title of a setting that enables JPEG XL format
-    */
-    enableJpegXlFormat: 'Enable `JPEG XL` format',
-    /**
-    *@description Title of a setting that disables WebP format
-    */
+     *@description Title of a setting that disables WebP format
+     */
     disableWebpFormat: 'Disable `WebP` format',
     /**
-    *@description Title of a setting that enables WebP format
-    */
+     *@description Title of a setting that enables WebP format
+     */
     enableWebpFormat: 'Enable `WebP` format',
     /**
-    *@description Title of a setting under the Console category in Settings
-    */
-    enableCustomFormatters: 'Enable custom formatters',
+     *@description Title of a setting under the Console category in Settings
+     */
+    customFormatters: 'Custom formatters',
     /**
-    *@description Text to enable blocking of network requests
-    */
+     *@description Title of a setting under the Network category
+     */
+    networkRequestBlocking: 'Network request blocking',
+    /**
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     enableNetworkRequestBlocking: 'Enable network request blocking',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     disableNetworkRequestBlocking: 'Disable network request blocking',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     enableCache: 'Enable cache',
     /**
      * @description Title of a setting under the Network category that can be invoked through the Command Menu
      */
     disableCache: 'Disable cache (while DevTools is open)',
     /**
-    * @description The name of a checkbox setting in the Rendering tool. This setting
-    * emulates that the webpage is in auto dark mode.
-    */
+     * @description The name of a checkbox setting in the Rendering tool. This setting
+     * emulates that the webpage is in auto dark mode.
+     */
     emulateAutoDarkMode: 'Emulate auto dark mode',
     /**
-    *@description Title of a setting for emulating enabled auto dark mode.
-    */
-    enabledDarkMode: 'Enable',
-    /**
-     * @description Title of a setting for emulating disabled auto dark mode.
+     * @description Label of a checkbox in the DevTools settings UI.
      */
-    disabledDarkMode: 'Disable',
+    enableRemoteFileLoading: 'Allow `DevTools` to load resources, such as source maps, from remote file paths. Disabled by default for security reasons.',
 };
 const str_ = i18n.i18n.registerUIStrings('core/sdk/sdk-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 Common.Settings.registerSettingExtension({
-    storageType: Common.Settings.SettingStorageType.Synced,
-    settingName: 'skipStackFramesPattern',
-    settingType: Common.Settings.SettingType.REGEX,
-    defaultValue: '',
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    settingName: 'skip-stack-frames-pattern',
+    settingType: "regex" /* Common.Settings.SettingType.REGEX */,
+    defaultValue: '/node_modules/|/bower_components/',
 });
 Common.Settings.registerSettingExtension({
-    storageType: Common.Settings.SettingStorageType.Synced,
-    settingName: 'skipContentScripts',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    defaultValue: false,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    settingName: 'skip-content-scripts',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    defaultValue: true,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.CONSOLE,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    settingName: 'automatically-ignore-list-known-third-party-scripts',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    defaultValue: true,
+});
+Common.Settings.registerSettingExtension({
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    settingName: 'enable-ignore-listing',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    defaultValue: true,
+});
+Common.Settings.registerSettingExtension({
+    category: "CONSOLE" /* Common.Settings.SettingCategory.CONSOLE */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.preserveLogUponNavigation),
-    settingName: 'preserveConsoleLog',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'preserve-console-log',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
     options: [
         {
@@ -358,9 +366,9 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.DEBUGGER,
-    settingName: 'pauseOnExceptionEnabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    category: "DEBUGGER" /* Common.Settings.SettingCategory.DEBUGGER */,
+    settingName: 'pause-on-exception-enabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
     options: [
         {
@@ -374,16 +382,21 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    settingName: 'pauseOnCaughtException',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'pause-on-caught-exception',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.DEBUGGER,
+    settingName: 'pause-on-uncaught-exception',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    defaultValue: false,
+});
+Common.Settings.registerSettingExtension({
+    category: "DEBUGGER" /* Common.Settings.SettingCategory.DEBUGGER */,
     title: i18nLazyString(UIStrings.disableJavascript),
-    settingName: 'javaScriptDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    settingName: 'java-script-disabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     order: 1,
     defaultValue: false,
     options: [
@@ -398,10 +411,10 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.DEBUGGER,
+    category: "DEBUGGER" /* Common.Settings.SettingCategory.DEBUGGER */,
     title: i18nLazyString(UIStrings.disableAsyncStackTraces),
-    settingName: 'disableAsyncStackTraces',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'disable-async-stack-traces',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
     order: 2,
     options: [
@@ -416,26 +429,36 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.DEBUGGER,
-    settingName: 'breakpointsActive',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "DEBUGGER" /* Common.Settings.SettingCategory.DEBUGGER */,
+    settingName: 'breakpoints-active',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: true,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.ELEMENTS,
-    storageType: Common.Settings.SettingStorageType.Synced,
-    title: i18nLazyString(UIStrings.showRulers),
-    settingName: 'showMetricsRulers',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    category: "ELEMENTS" /* Common.Settings.SettingCategory.ELEMENTS */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    title: i18nLazyString(UIStrings.showRulersOnHover),
+    settingName: 'show-metrics-rulers',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    options: [
+        {
+            value: true,
+            title: i18nLazyString(UIStrings.showRulersOnHover),
+        },
+        {
+            value: false,
+            title: i18nLazyString(UIStrings.doNotShowRulersOnHover),
+        },
+    ],
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.GRID,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "GRID" /* Common.Settings.SettingCategory.GRID */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.showAreaNames),
-    settingName: 'showGridAreas',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'show-grid-areas',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     options: [
         {
             value: true,
@@ -449,11 +472,11 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.GRID,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "GRID" /* Common.Settings.SettingCategory.GRID */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.showTrackSizes),
-    settingName: 'showGridTrackSizes',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'show-grid-track-sizes',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     options: [
         {
             value: true,
@@ -467,11 +490,11 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.GRID,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "GRID" /* Common.Settings.SettingCategory.GRID */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.extendGridLines),
-    settingName: 'extendGridLines',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'extend-grid-lines',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     options: [
         {
             value: true,
@@ -485,11 +508,11 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.GRID,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "GRID" /* Common.Settings.SettingCategory.GRID */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.showLineLabels),
-    settingName: 'showGridLineLabels',
-    settingType: Common.Settings.SettingType.ENUM,
+    settingName: 'show-grid-line-labels',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
     options: [
         {
             title: i18nLazyString(UIStrings.hideLineLabels),
@@ -510,10 +533,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: 'lineNumbers',
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showPaintRects',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-paint-rects',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -527,10 +550,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showLayoutShiftRegions',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-layout-shift-regions',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -544,10 +567,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showAdHighlights',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-ad-highlights',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -561,10 +584,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showDebugBorders',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-debug-borders',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -578,10 +601,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showWebVitals',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-web-vitals',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -595,10 +618,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showFPSCounter',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-fps-counter',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -612,10 +635,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showScrollBottleneckRects',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'show-scroll-bottleneck-rects',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -629,28 +652,11 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'showHitTestBorders',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
-    options: [
-        {
-            value: true,
-            title: i18nLazyString(UIStrings.showHittestBorders),
-        },
-        {
-            value: false,
-            title: i18nLazyString(UIStrings.hideHittestBorders),
-        },
-    ],
-    defaultValue: false,
-});
-Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
     title: i18nLazyString(UIStrings.emulateAFocusedPage),
-    settingName: 'emulatePageFocus',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    settingName: 'emulate-page-focus',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Local" /* Common.Settings.SettingStorageType.Local */,
     defaultValue: false,
     options: [
         {
@@ -664,10 +670,10 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'emulatedCSSMedia',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'emulated-css-media',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -692,10 +698,10 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaType),
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'emulatedCSSMediaFeaturePrefersColorScheme',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'emulated-css-media-feature-prefers-color-scheme',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -720,10 +726,38 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'prefers-color-scheme' }),
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'emulatedCSSMediaFeaturePrefersReducedMotion',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'emulated-css-media-feature-forced-colors',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
+    defaultValue: '',
+    options: [
+        {
+            title: i18nLazyString(UIStrings.doNotEmulateCss, { PH1: 'forced-colors' }),
+            text: i18nLazyString(UIStrings.noEmulation),
+            value: '',
+        },
+        {
+            title: i18nLazyString(UIStrings.emulateCss, { PH1: 'forced-colors: active' }),
+            text: i18n.i18n.lockedLazyString('forced-colors: active'),
+            value: 'active',
+        },
+        {
+            title: i18nLazyString(UIStrings.emulateCss, { PH1: 'forced-colors: none' }),
+            text: i18n.i18n.lockedLazyString('forced-colors: none'),
+            value: 'none',
+        },
+    ],
+    tags: [
+        i18nLazyString(UIStrings.query),
+    ],
+    title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'forced-colors' }),
+});
+Common.Settings.registerSettingExtension({
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'emulated-css-media-feature-prefers-reduced-motion',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -743,9 +777,9 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'prefers-reduced-motion' }),
 });
 Common.Settings.registerSettingExtension({
-    settingName: 'emulatedCSSMediaFeaturePrefersContrast',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    settingName: 'emulated-css-media-feature-prefers-contrast',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -775,9 +809,9 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'prefers-contrast' }),
 });
 Common.Settings.registerSettingExtension({
-    settingName: 'emulatedCSSMediaFeaturePrefersReducedData',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    settingName: 'emulated-css-media-feature-prefers-reduced-data',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -794,9 +828,28 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'prefers-reduced-data' }),
 });
 Common.Settings.registerSettingExtension({
-    settingName: 'emulatedCSSMediaFeatureColorGamut',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    settingName: 'emulated-css-media-feature-prefers-reduced-transparency',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
+    defaultValue: '',
+    options: [
+        {
+            title: i18nLazyString(UIStrings.doNotEmulateCss, { PH1: 'prefers-reduced-transparency' }),
+            text: i18nLazyString(UIStrings.noEmulation),
+            value: '',
+        },
+        {
+            title: i18nLazyString(UIStrings.emulateCss, { PH1: 'prefers-reduced-transparency: reduce' }),
+            text: i18n.i18n.lockedLazyString('prefers-reduced-transparency: reduce'),
+            value: 'reduce',
+        },
+    ],
+    title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'prefers-reduced-transparency' }),
+});
+Common.Settings.registerSettingExtension({
+    settingName: 'emulated-css-media-feature-color-gamut',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: '',
     options: [
         {
@@ -823,10 +876,10 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateCssMediaFeature, { PH1: 'color-gamut' }),
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'emulatedVisionDeficiency',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'emulated-vision-deficiency',
+    settingType: "enum" /* Common.Settings.SettingType.ENUM */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: 'none',
     options: [
         {
@@ -838,6 +891,11 @@ Common.Settings.registerSettingExtension({
             title: i18nLazyString(UIStrings.emulateBlurredVision),
             text: i18nLazyString(UIStrings.blurredVision),
             value: 'blurredVision',
+        },
+        {
+            title: i18nLazyString(UIStrings.emulateReducedContrast),
+            text: i18nLazyString(UIStrings.reducedContrast),
+            value: 'reducedContrast',
         },
         {
             title: i18nLazyString(UIStrings.emulateProtanopia),
@@ -866,10 +924,10 @@ Common.Settings.registerSettingExtension({
     title: i18nLazyString(UIStrings.emulateVisionDeficiencies),
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'localFontsDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'local-fonts-disabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -883,10 +941,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'avifFormatDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'avif-format-disabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -900,27 +958,10 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'jpegXlFormatDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
-    options: [
-        {
-            value: true,
-            title: i18nLazyString(UIStrings.disableJpegXlFormat),
-        },
-        {
-            value: false,
-            title: i18nLazyString(UIStrings.enableJpegXlFormat),
-        },
-    ],
-    defaultValue: false,
-});
-Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
-    settingName: 'webpFormatDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
+    settingName: 'webp-format-disabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     options: [
         {
             value: true,
@@ -934,18 +975,18 @@ Common.Settings.registerSettingExtension({
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.CONSOLE,
-    title: i18nLazyString(UIStrings.enableCustomFormatters),
-    settingName: 'customFormatters',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    category: "CONSOLE" /* Common.Settings.SettingCategory.CONSOLE */,
+    title: i18nLazyString(UIStrings.customFormatters),
+    settingName: 'custom-formatters',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.NETWORK,
-    title: i18nLazyString(UIStrings.enableNetworkRequestBlocking),
-    settingName: 'requestBlockingEnabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
-    storageType: Common.Settings.SettingStorageType.Session,
+    category: "NETWORK" /* Common.Settings.SettingCategory.NETWORK */,
+    title: i18nLazyString(UIStrings.networkRequestBlocking),
+    settingName: 'request-blocking-enabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
     defaultValue: false,
     options: [
         {
@@ -959,10 +1000,10 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.NETWORK,
+    category: "NETWORK" /* Common.Settings.SettingCategory.NETWORK */,
     title: i18nLazyString(UIStrings.disableCache),
-    settingName: 'cacheDisabled',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'cache-disabled',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     order: 0,
     defaultValue: false,
     userActionCondition: 'hasOtherClients',
@@ -978,28 +1019,19 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.RENDERING,
+    category: "RENDERING" /* Common.Settings.SettingCategory.RENDERING */,
     title: i18nLazyString(UIStrings.emulateAutoDarkMode),
-    settingName: 'emulateAutoDarkMode',
-    settingType: Common.Settings.SettingType.ENUM,
-    storageType: Common.Settings.SettingStorageType.Session,
-    defaultValue: 'default',
-    options: [
-        {
-            title: i18nLazyString(UIStrings.emulateAutoDarkMode),
-            text: i18nLazyString(UIStrings.noEmulation),
-            value: 'default',
-        },
-        {
-            title: i18nLazyString(UIStrings.emulateAutoDarkMode),
-            text: i18nLazyString(UIStrings.enabledDarkMode),
-            value: 'enabled',
-        },
-        {
-            title: i18nLazyString(UIStrings.emulateAutoDarkMode),
-            text: i18nLazyString(UIStrings.disabledDarkMode),
-            value: 'disabled',
-        },
-    ],
+    settingName: 'emulate-auto-dark-mode',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    storageType: "Session" /* Common.Settings.SettingStorageType.Session */,
+    defaultValue: false,
+});
+Common.Settings.registerSettingExtension({
+    category: "SOURCES" /* Common.Settings.SettingCategory.SOURCES */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
+    title: i18nLazyString(UIStrings.enableRemoteFileLoading),
+    settingName: 'network.enable-remote-file-loading',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
+    defaultValue: false,
 });
 //# sourceMappingURL=sdk-meta.js.map

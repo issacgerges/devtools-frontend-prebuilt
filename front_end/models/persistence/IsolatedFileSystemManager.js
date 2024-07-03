@@ -34,9 +34,9 @@ import * as Platform from '../../core/platform/platform.js';
 import { IsolatedFileSystem } from './IsolatedFileSystem.js';
 const UIStrings = {
     /**
-    *@description Text in Isolated File System Manager of the Workspace settings in Settings
-    *@example {folder does not exist} PH1
-    */
+     *@description Text in Isolated File System Manager of the Workspace settings in Settings
+     *@example {folder does not exist} PH1
+     */
     unableToAddFilesystemS: 'Unable to add filesystem: {PH1}',
 };
 const str_ = i18n.i18n.registerUIStrings('models/persistence/IsolatedFileSystemManager.ts', UIStrings);
@@ -98,7 +98,7 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
             defaultExcludedFolders = defaultExcludedFolders.concat(defaultLinuxExcludedFolders);
         }
         const defaultExcludedFoldersPattern = defaultExcludedFolders.join('|');
-        this.workspaceFolderExcludePatternSettingInternal = Common.Settings.Settings.instance().createRegExpSetting('workspaceFolderExcludePattern', defaultExcludedFoldersPattern, Host.Platform.isWin() ? 'i' : '');
+        this.workspaceFolderExcludePatternSettingInternal = Common.Settings.Settings.instance().createRegExpSetting('workspace-folder-exclude-pattern', defaultExcludedFoldersPattern, Host.Platform.isWin() ? 'i' : '');
         this.fileSystemRequestResolve = null;
         this.fileSystemsLoadedPromise = this.requestFileSystems();
     }
@@ -108,6 +108,9 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
             isolatedFileSystemManagerInstance = new IsolatedFileSystemManager();
         }
         return isolatedFileSystemManagerInstance;
+    }
+    static removeInstance() {
+        isolatedFileSystemManagerInstance = null;
     }
     requestFileSystems() {
         let fulfill;
@@ -123,19 +126,23 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
             for (let i = 0; i < fileSystems.length; ++i) {
                 promises.push(this.innerAddFileSystem(fileSystems[i], false));
             }
-            Promise.all(promises).then(onFileSystemsAdded);
+            void Promise.all(promises).then(onFileSystemsAdded);
         }
         function onFileSystemsAdded(fileSystems) {
             fulfill(fileSystems.filter(fs => Boolean(fs)));
         }
     }
     addFileSystem(type) {
+        Host.userMetrics.actionTaken(type === 'overrides' ? Host.UserMetrics.Action.OverrideTabAddFolder :
+            Host.UserMetrics.Action.WorkspaceTabAddFolder);
         return new Promise(resolve => {
             this.fileSystemRequestResolve = resolve;
             Host.InspectorFrontendHost.InspectorFrontendHostInstance.addFileSystem(type || '');
         });
     }
     removeFileSystem(fileSystem) {
+        Host.userMetrics.actionTaken(fileSystem.type() === 'overrides' ? Host.UserMetrics.Action.OverrideTabRemoveFolder :
+            Host.UserMetrics.Action.WorkspaceTabRemoveFolder);
         Host.InspectorFrontendHost.InspectorFrontendHostInstance.removeFileSystem(fileSystem.embedderPath());
     }
     waitForFileSystems() {
@@ -174,7 +181,7 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
             this.fileSystemRequestResolve = null;
         }
         else if (fileSystem) {
-            this.innerAddFileSystem(fileSystem, true).then(fileSystem => {
+            void this.innerAddFileSystem(fileSystem, true).then(fileSystem => {
                 if (this.fileSystemRequestResolve) {
                     this.fileSystemRequestResolve.call(null, fileSystem);
                     this.fileSystemRequestResolve = null;
@@ -206,7 +213,8 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
                 const filePath = Common.ParsedURL.ParsedURL.rawPathToUrlString(embedderPath);
                 for (const fileSystemPath of this.fileSystemsInternal.keys()) {
                     const fileSystem = this.fileSystemsInternal.get(fileSystemPath);
-                    if (fileSystem && fileSystem.isFileExcluded(embedderPath)) {
+                    if (fileSystem &&
+                        fileSystem.isFileExcluded(Common.ParsedURL.ParsedURL.rawPathToEncodedPathString(embedderPath))) {
                         continue;
                     }
                     const pathPrefix = fileSystemPath.endsWith('/') ? fileSystemPath : fileSystemPath + '/';
@@ -277,8 +285,6 @@ export class IsolatedFileSystemManager extends Common.ObjectWrapper.ObjectWrappe
         this.callbacks.delete(requestId);
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
 export var Events;
 (function (Events) {
     Events["FileSystemAdded"] = "FileSystemAdded";

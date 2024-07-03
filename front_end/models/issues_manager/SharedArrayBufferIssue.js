@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as i18n from '../../core/i18n/i18n.js';
-import { Issue, IssueKind, IssueCategory } from './Issue.js';
+import { Issue } from './Issue.js';
 const UIStrings = {
     /**
      *@description Label for the link for SharedArrayBuffer Issues. The full text reads "Enabling `SharedArrayBuffer`"
@@ -13,17 +13,17 @@ const UIStrings = {
 const str_ = i18n.i18n.registerUIStrings('models/issues_manager/SharedArrayBufferIssue.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class SharedArrayBufferIssue extends Issue {
-    issueDetails;
+    #issueDetails;
     constructor(issueDetails, issuesModel) {
-        const umaCode = ["SharedArrayBufferIssue" /* SharedArrayBufferIssue */, issueDetails.type].join('::');
-        super({ code: "SharedArrayBufferIssue" /* SharedArrayBufferIssue */, umaCode }, issuesModel);
-        this.issueDetails = issueDetails;
+        const umaCode = ["SharedArrayBufferIssue" /* Protocol.Audits.InspectorIssueCode.SharedArrayBufferIssue */, issueDetails.type].join('::');
+        super({ code: "SharedArrayBufferIssue" /* Protocol.Audits.InspectorIssueCode.SharedArrayBufferIssue */, umaCode }, issuesModel);
+        this.#issueDetails = issueDetails;
     }
     getCategory() {
-        return IssueCategory.Other;
+        return "Other" /* IssueCategory.Other */;
     }
     details() {
-        return this.issueDetails;
+        return this.#issueDetails;
     }
     getDescription() {
         return {
@@ -35,13 +35,13 @@ export class SharedArrayBufferIssue extends Issue {
         };
     }
     primaryKey() {
-        return JSON.stringify(this.issueDetails);
+        return JSON.stringify(this.#issueDetails);
     }
     getKind() {
-        if (this.issueDetails.isWarning) {
-            return IssueKind.BreakingChange;
+        if (this.#issueDetails.isWarning) {
+            return "BreakingChange" /* IssueKind.BreakingChange */;
         }
-        return IssueKind.PageError;
+        return "PageError" /* IssueKind.PageError */;
     }
     static fromInspectorIssue(issuesModel, inspectorIssue) {
         const sabIssueDetails = inspectorIssue.details.sharedArrayBufferIssueDetails;

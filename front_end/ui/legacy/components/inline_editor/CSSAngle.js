@@ -1,13 +1,12 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import * as ComponentHelpers from '../../../components/helpers/helpers.js';
 import * as LitHtml from '../../../lit-html/lit-html.js';
 import cssAngleStyles from './cssAngle.css.js';
-import { convertAngleUnit, getNewAngleFromEvent, getNextUnit, parseText, roundAngleByUnit } from './CSSAngleUtils.js';
-import { ValueChangedEvent } from './InlineEditorUtils.js';
 import { CSSAngleEditor } from './CSSAngleEditor.js';
 import { CSSAngleSwatch } from './CSSAngleSwatch.js';
+import { convertAngleUnit, getNewAngleFromEvent, getNextUnit, parseText, roundAngleByUnit, } from './CSSAngleUtils.js';
+import { ValueChangedEvent } from './InlineEditorUtils.js';
 const { render, html } = LitHtml;
 const styleMap = LitHtml.Directives.styleMap;
 const ContextAwareProperties = new Set(['color', 'background', 'background-color']);
@@ -29,7 +28,7 @@ export class UnitChangedEvent extends Event {
 }
 const DefaultAngle = {
     value: 0,
-    unit: "rad" /* Rad */,
+    unit: "rad" /* AngleUnit.Rad */,
 };
 export class CSSAngle extends HTMLElement {
     static litTagName = LitHtml.literal `devtools-css-angle`;
@@ -45,7 +44,6 @@ export class CSSAngle extends HTMLElement {
     popoverStyleTop = '';
     popoverStyleLeft = '';
     onMinifyingAction = this.minify.bind(this);
-    onAngleUpdate = this.updateAngle.bind(this);
     connectedCallback() {
         this.shadow.adoptedStyleSheets = [cssAngleStyles];
     }
@@ -67,7 +65,7 @@ export class CSSAngle extends HTMLElement {
     // We bind and unbind mouse event listeners upon popping over and minifying,
     // because we anticipate most of the time this widget is minified even when
     // it's attached to the DOM tree.
-    popover() {
+    popOver() {
         if (!this.containingPane) {
             return;
         }
@@ -98,6 +96,9 @@ export class CSSAngle extends HTMLElement {
         this.popoverOpen = true;
         this.render();
         this.angleElement.focus();
+    }
+    addEventListener(type, listener, options) {
+        super.addEventListener(type, listener, options);
     }
     minify() {
         if (this.popoverOpen === false) {
@@ -141,7 +142,7 @@ export class CSSAngle extends HTMLElement {
             this.displayNextUnit();
             return;
         }
-        this.popoverOpen ? this.minify() : this.popover();
+        this.popoverOpen ? this.minify() : this.popOver();
     }
     // Fix that the previous text will be selected when double-clicking the angle icon
     consume(event) {
@@ -172,7 +173,7 @@ export class CSSAngle extends HTMLElement {
         // Disabled until https://crbug.com/1079231 is fixed.
         // clang-format off
         render(html `
-      <div class="css-angle" @keydown=${this.onKeydown} tabindex="-1">
+      <div class="css-angle" @focusout=${this.minify} @keydown=${this.onKeydown} tabindex="-1">
         <div class="preview">
           <${CSSAngleSwatch.litTagName}
             @click=${this.onMiniIconClick}
@@ -181,8 +182,7 @@ export class CSSAngle extends HTMLElement {
             .data=${{
             angle: this.angle,
         }}>
-          </${CSSAngleSwatch.litTagName}><slot></slot>
-        </div>
+          </${CSSAngleSwatch.litTagName}><slot></slot></div>
         ${this.popoverOpen ? this.renderPopover() : null}
       </div>
     `, this.shadow, {
@@ -205,7 +205,9 @@ export class CSSAngle extends HTMLElement {
       style=${styleMap({ top: this.popoverStyleTop, left: this.popoverStyleLeft })}
       .data=${{
             angle: this.angle,
-            onAngleUpdate: this.onAngleUpdate,
+            onAngleUpdate: (angle) => {
+                this.updateAngle(angle);
+            },
             background: contextualBackground,
         }}
     ></${CSSAngleEditor.litTagName}>
@@ -213,5 +215,5 @@ export class CSSAngle extends HTMLElement {
         // clang-format on
     }
 }
-ComponentHelpers.CustomElements.defineComponent('devtools-css-angle', CSSAngle);
+customElements.define('devtools-css-angle', CSSAngle);
 //# sourceMappingURL=CSSAngle.js.map

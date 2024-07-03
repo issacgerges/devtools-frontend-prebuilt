@@ -3,33 +3,31 @@
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import * as TraceEngine from '../../models/trace/trace.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import { getCategoryStyles } from './EventUICategory.js';
 import { Category, IsLong } from './TimelineFilters.js';
-import { TimelineSelection } from './TimelinePanel.js';
+import { TimelineSelection } from './TimelineSelection.js';
 import { TimelineTreeView } from './TimelineTreeView.js';
 import { TimelineUIUtils } from './TimelineUIUtils.js';
 const UIStrings = {
     /**
-    *@description Aria-label for filter bar in Event Log view
-    */
-    filterEventLog: 'Filter event log',
-    /**
-    *@description Text for the start time of an activity
-    */
+     *@description Text for the start time of an activity
+     */
     startTime: 'Start Time',
     /**
-    *@description Screen reader label for a select box that filters the Performance panel Event Log by duration.
-    */
+     *@description Screen reader label for a select box that filters the Performance panel Event Log by duration.
+     */
     durationFilter: 'Duration filter',
     /**
-    *@description Text in Events Timeline Tree View of the Performance panel
-    *@example {2} PH1
-    */
+     *@description Text in Events Timeline Tree View of the Performance panel
+     *@example {2} PH1
+     */
     Dms: '{PH1} ms',
     /**
-    *@description Text for everything
-    */
+     *@description Text for everything
+     */
     all: 'All',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/EventsTimelineTreeView.ts', UIStrings);
@@ -41,10 +39,10 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     constructor(delegate) {
         super();
         this.filtersControl = new Filters();
-        this.filtersControl.addEventListener("FilterChanged" /* FilterChanged */, this.onFilterChanged, this);
+        this.filtersControl.addEventListener("FilterChanged" /* Events.FilterChanged */, this.onFilterChanged, this);
         this.init();
         this.delegate = delegate;
-        this.dataGrid.markColumnAsSortedBy('startTime', DataGrid.DataGrid.Order.Ascending);
+        this.dataGrid.markColumnAsSortedBy('start-time', DataGrid.DataGrid.Order.Ascending);
         this.splitWidget.showBoth();
     }
     filters() {
@@ -52,13 +50,9 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     }
     updateContents(selection) {
         super.updateContents(selection);
-        if (selection.type() === TimelineSelection.Type.TraceEvent) {
-            const event = selection.object();
-            this.selectEvent(event, true);
+        if (TimelineSelection.isTraceEventSelection(selection.object)) {
+            this.selectEvent(selection.object, true);
         }
-    }
-    getToolbarInputAccessiblePlaceHolder() {
-        return i18nString(UIStrings.filterEventLog);
     }
     buildTree() {
         this.currentTree = this.buildTopDownTree(true, null);
@@ -73,6 +67,11 @@ export class EventsTimelineTreeView extends TimelineTreeView {
         }
     }
     findNodeWithEvent(event) {
+        if (event.name === "RunTask" /* TraceEngine.Types.TraceEvents.KnownEventName.RunTask */) {
+            // No node is ever created for the top level RunTask event, so
+            // bail out preemptively
+            return null;
+        }
         const iterators = [this.currentTree.children().values()];
         while (iterators.length) {
             const { done, value: child } = iterators[iterators.length - 1].next();
@@ -102,7 +101,7 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     }
     populateColumns(columns) {
         columns.push({
-            id: 'startTime',
+            id: 'start-time',
             title: i18nString(UIStrings.startTime),
             width: '80px',
             fixedWidth: true,
@@ -118,15 +117,15 @@ export class EventsTimelineTreeView extends TimelineTreeView {
         this.filtersControl.populateToolbar(toolbar);
     }
     showDetailsForNode(node) {
+        const traceParseData = this.traceParseData();
+        if (!traceParseData) {
+            return false;
+        }
         const traceEvent = node.event;
         if (!traceEvent) {
             return false;
         }
-        const model = this.model();
-        if (!model) {
-            return false;
-        }
-        TimelineUIUtils.buildTraceEventDetails(traceEvent, model.timelineModel(), this.linkifier, false)
+        void TimelineUIUtils.buildTraceEventDetails(traceParseData, traceEvent, this.linkifier, false)
             .then(fragment => this.detailsView.element.appendChild(fragment));
         return true;
     }
@@ -154,7 +153,7 @@ export class Filters extends Common.ObjectWrapper.ObjectWrapper {
         }
         toolbar.appendToolbarItem(durationFilterUI);
         const categoryFiltersUI = new Map();
-        const categories = TimelineUIUtils.categories();
+        const categories = getCategoryStyles();
         for (const categoryName in categories) {
             const category = categories[categoryName];
             if (!category.visible) {
@@ -169,21 +168,19 @@ export class Filters extends Common.ObjectWrapper.ObjectWrapper {
         function durationFilterChanged() {
             const duration = durationFilterUI.selectedOption().value;
             const minimumRecordDuration = parseInt(duration, 10);
-            this.durationFilter.setMinimumRecordDuration(minimumRecordDuration);
+            this.durationFilter.setMinimumRecordDuration(TraceEngine.Types.Timing.MilliSeconds(minimumRecordDuration));
             this.notifyFiltersChanged();
         }
         function categoriesFilterChanged(name) {
-            const categories = TimelineUIUtils.categories();
+            const categories = getCategoryStyles();
             const checkBox = categoryFiltersUI.get(name);
             categories[name].hidden = !checkBox || !checkBox.checked();
             this.notifyFiltersChanged();
         }
     }
     notifyFiltersChanged() {
-        this.dispatchEventToListeners("FilterChanged" /* FilterChanged */);
+        this.dispatchEventToListeners("FilterChanged" /* Events.FilterChanged */);
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     static durationFilterPresetsMs = [0, 1, 15];
 }
 //# sourceMappingURL=EventsTimelineTreeView.js.map

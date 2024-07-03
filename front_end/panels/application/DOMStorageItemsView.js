@@ -32,28 +32,33 @@ import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as SourceFrame from '../../ui/legacy/components/source_frame/source_frame.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import { DOMStorage } from './DOMStorageModel.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import { StorageItemsView } from './StorageItemsView.js';
 const UIStrings = {
     /**
-    *@description Text in DOMStorage Items View of the Application panel
-    */
+     *@description Text in DOMStorage Items View of the Application panel
+     */
     domStorage: 'DOM Storage',
     /**
-    *@description Text in DOMStorage Items View of the Application panel
-    */
+     *@description Text in DOMStorage Items View of the Application panel
+     */
     key: 'Key',
     /**
-    *@description Text for the value of something
-    */
+     *@description Text for the value of something
+     */
     value: 'Value',
     /**
-    *@description Data grid name for DOM Storage Items data grids
-    */
+     *@description Name for the "DOM Storage Items" table that shows the content of the DOM Storage.
+     */
     domStorageItems: 'DOM Storage Items',
     /**
-    *@description Text in DOMStorage Items View of the Application panel
-    */
+     *@description Text for announcing that the "DOM Storage Items" table was cleared, that is, all
+     * entries were deleted.
+     */
+    domStorageItemsCleared: 'DOM Storage Items cleared',
+    /**
+     *@description Text in DOMStorage Items View of the Application panel
+     */
     selectAValueToPreview: 'Select a value to preview',
     /**
      *@description Text for announcing a DOM Storage key/value item has been deleted
@@ -78,6 +83,9 @@ export class DOMStorageItemsView extends StorageItemsView {
     constructor(domStorage) {
         super(i18nString(UIStrings.domStorage), 'domStoragePanel');
         this.domStorage = domStorage;
+        if (domStorage.storageKey) {
+            this.setStorageKey(domStorage.storageKey);
+        }
         this.element.classList.add('storage-view', 'table');
         const columns = [
             { id: 'key', title: i18nString(UIStrings.key), sortable: false, editable: true, longText: true, weight: 50 },
@@ -90,19 +98,20 @@ export class DOMStorageItemsView extends StorageItemsView {
             deleteCallback: this.deleteCallback.bind(this),
             refreshCallback: this.refreshItems.bind(this),
         });
-        this.dataGrid.addEventListener(DataGrid.DataGrid.Events.SelectedNode, event => {
-            this.previewEntry(event.data);
+        this.dataGrid.addEventListener("SelectedNode" /* DataGrid.DataGrid.Events.SelectedNode */, event => {
+            void this.previewEntry(event.data);
         });
-        this.dataGrid.addEventListener(DataGrid.DataGrid.Events.DeselectedNode, () => {
-            this.previewEntry(null);
+        this.dataGrid.addEventListener("DeselectedNode" /* DataGrid.DataGrid.Events.DeselectedNode */, () => {
+            void this.previewEntry(null);
         });
         this.dataGrid.setStriped(true);
-        this.dataGrid.setName('DOMStorageItemsView');
+        this.dataGrid.setName('dom-storage-items-view');
         this.splitWidget = new UI.SplitWidget.SplitWidget(
-        /* isVertical: */ false, /* secondIsSidebar: */ true, 'domStorageSplitViewState');
+        /* isVertical: */ false, /* secondIsSidebar: */ true, 'dom-storage-split-view-state');
         this.splitWidget.show(this.element);
         this.previewPanel = new UI.Widget.VBox();
         this.previewPanel.setMinimumSize(0, 50);
+        this.previewPanel.element.setAttribute('jslog', `${VisualLogging.pane('preview').track({ resize: true })}`);
         const resizer = this.previewPanel.element.createChild('div', 'preview-panel-resizer');
         const dataGridWidget = this.dataGrid.asWidget();
         dataGridWidget.setMinimumSize(0, 50);
@@ -118,11 +127,16 @@ export class DOMStorageItemsView extends StorageItemsView {
     setStorage(domStorage) {
         Common.EventTarget.removeEventListeners(this.eventListeners);
         this.domStorage = domStorage;
+        const storageKind = domStorage.isLocalStorage ? 'local-storage-data' : 'session-storage-data';
+        this.element.setAttribute('jslog', `${VisualLogging.pane().context(storageKind)}`);
+        if (domStorage.storageKey) {
+            this.setStorageKey(domStorage.storageKey);
+        }
         this.eventListeners = [
-            this.domStorage.addEventListener(DOMStorage.Events.DOMStorageItemsCleared, this.domStorageItemsCleared, this),
-            this.domStorage.addEventListener(DOMStorage.Events.DOMStorageItemRemoved, this.domStorageItemRemoved, this),
-            this.domStorage.addEventListener(DOMStorage.Events.DOMStorageItemAdded, this.domStorageItemAdded, this),
-            this.domStorage.addEventListener(DOMStorage.Events.DOMStorageItemUpdated, this.domStorageItemUpdated, this),
+            this.domStorage.addEventListener("DOMStorageItemsCleared" /* DOMStorage.Events.DOMStorageItemsCleared */, this.domStorageItemsCleared, this),
+            this.domStorage.addEventListener("DOMStorageItemRemoved" /* DOMStorage.Events.DOMStorageItemRemoved */, this.domStorageItemRemoved, this),
+            this.domStorage.addEventListener("DOMStorageItemAdded" /* DOMStorage.Events.DOMStorageItemAdded */, this.domStorageItemAdded, this),
+            this.domStorage.addEventListener("DOMStorageItemUpdated" /* DOMStorage.Events.DOMStorageItemUpdated */, this.domStorageItemUpdated, this),
         ];
         this.refreshItems();
     }
@@ -132,6 +146,7 @@ export class DOMStorageItemsView extends StorageItemsView {
         }
         this.dataGrid.rootNode().removeChildren();
         this.dataGrid.addCreationNode(false);
+        UI.ARIAUtils.alert(i18nString(UIStrings.domStorageItemsCleared));
         this.setCanDeleteSelected(false);
     }
     domStorageItemRemoved(event) {
@@ -171,15 +186,19 @@ export class DOMStorageItemsView extends StorageItemsView {
         }
         const storageData = event.data;
         const childNode = this.dataGrid.rootNode().children.find((child) => child.data.key === storageData.key);
-        if (!childNode || childNode.data.value === storageData.value) {
+        if (!childNode) {
             return;
         }
-        childNode.data.value = storageData.value;
-        childNode.refresh();
+        if (childNode.data.value !== storageData.value) {
+            childNode.data.value = storageData.value;
+            childNode.refresh();
+        }
         if (!childNode.selected) {
             return;
         }
-        this.previewEntry(childNode);
+        if (this.previewValue !== storageData.value) {
+            void this.previewEntry(childNode);
+        }
         this.setCanDeleteSelected(true);
     }
     showDOMStorageItems(items) {
@@ -220,7 +239,7 @@ export class DOMStorageItemsView extends StorageItemsView {
         this.deleteCallback(this.dataGrid.selectedNode);
     }
     refreshItems() {
-        this.domStorage.getItems().then(items => items && this.showDOMStorageItems(items));
+        void this.domStorage.getItems().then(items => items && this.showDOMStorageItems(items));
     }
     deleteAllItems() {
         this.domStorage.clear();

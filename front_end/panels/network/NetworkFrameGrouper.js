@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import { NetworkGroupNode } from './NetworkDataGridNode.js';
 export class NetworkFrameGrouper {
@@ -14,7 +15,7 @@ export class NetworkFrameGrouper {
     }
     groupNodeForRequest(request) {
         const frame = SDK.ResourceTreeModel.ResourceTreeModel.frameForRequest(request);
-        if (!frame || frame.isTopFrame()) {
+        if (!frame || frame.isOutermostFrame()) {
             return null;
         }
         let groupNode = this.activeGroups.get(frame);
@@ -43,7 +44,7 @@ export class FrameGroupNode extends NetworkGroupNode {
         const columnIndex = this.dataGrid.indexOfVisibleColumn(columnId);
         if (columnIndex === 0) {
             const name = this.displayName();
-            cell.appendChild(UI.Icon.Icon.create('largeicon-navigator-frame', 'network-frame-group-icon'));
+            cell.appendChild(IconButton.Icon.create('frame', 'network-frame-group-icon'));
             UI.UIUtils.createTextChild(cell, name);
             UI.Tooltip.Tooltip.install(cell, name);
             this.setCellAccessibleName(cell.textContent || '', cell, columnId);

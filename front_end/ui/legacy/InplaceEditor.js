@@ -5,16 +5,14 @@ import * as Platform from '../../core/platform/platform.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import { Keys } from './KeyboardShortcut.js';
 import { ElementFocusRestorer, markBeingEdited } from './UIUtils.js';
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-let _defaultInstance = null;
+let inplaceEditorInstance = null;
 export class InplaceEditor {
     focusRestorer;
     static startEditing(element, config) {
-        if (!_defaultInstance) {
-            _defaultInstance = new InplaceEditor();
+        if (!inplaceEditorInstance) {
+            inplaceEditorInstance = new InplaceEditor();
         }
-        return _defaultInstance.startEditing(element, config);
+        return inplaceEditorInstance.startEditing(element, config);
     }
     editorContent(editingContext) {
         const element = editingContext.element;
@@ -30,7 +28,9 @@ export class InplaceEditor {
         const oldRole = element.getAttribute('role');
         ARIAUtils.markAsTextBox(element);
         editingContext.oldRole = oldRole;
-        const oldTabIndex = element.tabIndex;
+        // Using element.getAttribute('tabIndex') instead of element.tabIndex so
+        // that we do not get a default value if the tabIndex attribute is not set.
+        const oldTabIndex = element.getAttribute('tabIndex');
         if (typeof oldTabIndex !== 'number' || oldTabIndex < 0) {
             element.tabIndex = 0;
         }
@@ -51,7 +51,7 @@ export class InplaceEditor {
             element.removeAttribute('tabIndex');
         }
         else {
-            element.tabIndex = editingContext.oldTabIndex;
+            element.setAttribute('tabIndex', editingContext.oldTabIndex);
         }
         element.scrollTop = 0;
         element.scrollLeft = 0;
@@ -105,6 +105,7 @@ export class InplaceEditor {
         function editingCommitted() {
             cleanUpAfterEditing();
             committedCallback(this, self.editorContent(editingContext), editingContext.oldText || '', context, moveDirection);
+            element.dispatchEvent(new Event('change'));
         }
         function defaultFinishHandler(event) {
             if (event.key === 'Enter') {

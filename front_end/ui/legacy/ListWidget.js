@@ -2,32 +2,44 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as i18n from '../../core/i18n/i18n.js';
+import * as Platform from '../../core/platform/platform.js';
+import * as Buttons from '../../ui/components/buttons/buttons.js';
+import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
+import listWidgetStyles from './listWidget.css.legacy.js';
 import { Toolbar, ToolbarButton } from './Toolbar.js';
 import { Tooltip } from './Tooltip.js';
 import { createInput, createTextButton, ElementFocusRestorer } from './UIUtils.js';
 import { VBox } from './Widget.js';
 const UIStrings = {
     /**
-    *@description Text on a button to start editing text
-    */
+     *@description Text on a button to start editing text
+     */
     editString: 'Edit',
     /**
-    *@description Label for an item to remove something
-    */
+     *@description Label for an item to remove something
+     */
     removeString: 'Remove',
     /**
-    *@description Text to save something
-    */
+     *@description Text to save something
+     */
     saveString: 'Save',
     /**
-    *@description Text to add something
-    */
+     *@description Text to add something
+     */
     addString: 'Add',
     /**
-    *@description Text to cancel something
-    */
+     *@description Text to cancel something
+     */
     cancelString: 'Cancel',
+    /**
+     * @description Text for screen reader to announce that an item has been saved.
+     */
+    changesSaved: 'Changes to item have been saved',
+    /**
+     * @description Text for screen reader to announce that an item has been removed.
+     */
+    removedItem: 'Item has been removed',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/ListWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -43,9 +55,10 @@ export class ListWidget extends VBox {
     editItem;
     editElement;
     emptyPlaceholder;
-    constructor(delegate, delegatesFocus = true) {
+    isTable;
+    constructor(delegate, delegatesFocus = true, isTable = false) {
         super(true, delegatesFocus);
-        this.registerRequiredCSS('ui/legacy/listWidget.css');
+        this.registerRequiredCSS(listWidgetStyles);
         this.delegate = delegate;
         this.list = this.contentElement.createChild('div', 'list');
         this.lastSeparator = false;
@@ -57,6 +70,10 @@ export class ListWidget extends VBox {
         this.editItem = null;
         this.editElement = null;
         this.emptyPlaceholder = null;
+        this.isTable = isTable;
+        if (isTable) {
+            this.list.role = 'table';
+        }
         this.updatePlaceholder();
     }
     clear() {
@@ -72,13 +89,23 @@ export class ListWidget extends VBox {
         if (this.lastSeparator && this.items.length) {
             const element = document.createElement('div');
             element.classList.add('list-separator');
+            if (this.isTable) {
+                element.role = 'rowgroup';
+            }
             this.list.appendChild(element);
         }
         this.lastSeparator = false;
         this.items.push(item);
         this.editable.push(editable);
         const element = this.list.createChild('div', 'list-item');
-        element.appendChild(this.delegate.renderItem(item, editable));
+        if (this.isTable) {
+            element.role = 'rowgroup';
+        }
+        const content = this.delegate.renderItem(item, editable);
+        if (!content.hasAttribute('jslog')) {
+            element.setAttribute('jslog', `${VisualLogging.item()}`);
+        }
+        element.appendChild(content);
         if (editable) {
             element.classList.add('editable');
             element.tabIndex = 0;
@@ -125,11 +152,11 @@ export class ListWidget extends VBox {
         controls.createChild('div', 'controls-gradient');
         const buttons = controls.createChild('div', 'controls-buttons');
         const toolbar = new Toolbar('', buttons);
-        const editButton = new ToolbarButton(i18nString(UIStrings.editString), 'largeicon-edit');
-        editButton.addEventListener(ToolbarButton.Events.Click, onEditClicked.bind(this));
+        const editButton = new ToolbarButton(i18nString(UIStrings.editString), 'edit', undefined, 'edit-item');
+        editButton.addEventListener("Click" /* ToolbarButton.Events.Click */, onEditClicked.bind(this));
         toolbar.appendToolbarItem(editButton);
-        const removeButton = new ToolbarButton(i18nString(UIStrings.removeString), 'largeicon-trash-bin');
-        removeButton.addEventListener(ToolbarButton.Events.Click, onRemoveClicked.bind(this));
+        const removeButton = new ToolbarButton(i18nString(UIStrings.removeString), 'bin', undefined, 'remove-item');
+        removeButton.addEventListener("Click" /* ToolbarButton.Events.Click */, onRemoveClicked.bind(this));
         toolbar.appendToolbarItem(removeButton);
         return controls;
         function onEditClicked() {
@@ -141,6 +168,9 @@ export class ListWidget extends VBox {
             const index = this.elements.indexOf(element);
             this.element.focus();
             this.delegate.removeItemRequested(this.items[index], index);
+            ARIAUtils.alert(i18nString(UIStrings.removedItem));
+            // focus on the next item in the list, or the last item if we're removing the last item
+            this.elements[Math.min(index, this.elements.length - 1)].focus();
         }
     }
     wasShown() {
@@ -165,6 +195,7 @@ export class ListWidget extends VBox {
         this.stopEditing();
         this.focusRestorer = new ElementFocusRestorer(this.element);
         this.list.classList.add('list-editing');
+        this.element.classList.add('list-editing');
         this.editItem = item;
         this.editElement = element;
         if (element) {
@@ -180,13 +211,20 @@ export class ListWidget extends VBox {
         const editItem = this.editItem;
         const isNew = !this.editElement;
         const editor = this.editor;
+        // Focus on the current item or the new item after committing
+        const focusElementIndex = this.editElement ? this.elements.indexOf(this.editElement) : this.elements.length - 1;
         this.stopEditing();
-        if (editItem) {
+        if (editItem !== null) {
             this.delegate.commitEdit(editItem, editor, isNew);
+            ARIAUtils.alert(i18nString(UIStrings.changesSaved));
+            if (this.elements[focusElementIndex]) {
+                this.elements[focusElementIndex].focus();
+            }
         }
     }
     stopEditing() {
         this.list.classList.remove('list-editing');
+        this.element.classList.remove('list-editing');
         if (this.focusRestorer) {
             this.focusRestorer.restore();
         }
@@ -218,15 +256,31 @@ export class Editor {
     constructor() {
         this.element = document.createElement('div');
         this.element.classList.add('editor-container');
-        this.element.addEventListener('keydown', onKeyDown.bind(null, isEscKey, this.cancelClicked.bind(this)), false);
-        this.element.addEventListener('keydown', onKeyDown.bind(null, event => event.key === 'Enter', this.commitClicked.bind(this)), false);
+        this.element.setAttribute('jslog', `${VisualLogging.pane('editor').track({ resize: true })}`);
+        this.element.addEventListener('keydown', onKeyDown.bind(null, Platform.KeyboardUtilities.isEscKey, this.cancelClicked.bind(this)), false);
         this.contentElementInternal = this.element.createChild('div', 'editor-content');
+        this.contentElementInternal.addEventListener('keydown', onKeyDown.bind(null, event => {
+            if (event.key !== 'Enter') {
+                return false;
+            }
+            if (event.target instanceof HTMLSelectElement) {
+                // 'Enter' on <select> is supposed to open the drop down, so don't swallow that here.
+                return false;
+            }
+            return true;
+        }, this.commitClicked.bind(this)), false);
         const buttonsRow = this.element.createChild('div', 'editor-buttons');
-        this.commitButton = createTextButton('', this.commitClicked.bind(this), '', true /* primary */);
-        buttonsRow.appendChild(this.commitButton);
-        this.cancelButton = createTextButton(i18nString(UIStrings.cancelString), this.cancelClicked.bind(this), '', true /* primary */, 'mousedown');
-        this.cancelButton.addEventListener('keydown', onKeyDown.bind(null, event => event.key === 'Enter', this.cancelClicked.bind(this)), false);
+        this.cancelButton = createTextButton(i18nString(UIStrings.cancelString), this.cancelClicked.bind(this), {
+            jslogContext: 'cancel',
+            variant: "outlined" /* Buttons.Button.Variant.OUTLINED */,
+        });
+        this.cancelButton.setAttribute('jslog', `${VisualLogging.action('cancel').track({ click: true })}`);
         buttonsRow.appendChild(this.cancelButton);
+        this.commitButton = createTextButton('', this.commitClicked.bind(this), {
+            jslogContext: 'commit',
+            variant: "primary" /* Buttons.Button.Variant.PRIMARY */,
+        });
+        buttonsRow.appendChild(this.commitButton);
         this.errorMessageContainer = this.element.createChild('div', 'list-widget-input-validation-error');
         ARIAUtils.markAsAlert(this.errorMessageContainer);
         function onKeyDown(predicate, callback, event) {
@@ -250,8 +304,8 @@ export class Editor {
         const input = createInput('', type);
         input.placeholder = title;
         input.addEventListener('input', this.validateControls.bind(this, false), false);
-        input.addEventListener('blur', this.validateControls.bind(this, false), false);
-        ARIAUtils.setAccessibleName(input, title);
+        input.setAttribute('jslog', `${VisualLogging.textField().track({ change: true, keydown: 'Enter' }).context(name)}`);
+        ARIAUtils.setLabel(input, title);
         this.controlByName.set(name, input);
         this.controls.push(input);
         this.validators.push(validator);
@@ -259,15 +313,17 @@ export class Editor {
     }
     createSelect(name, options, validator, title) {
         const select = document.createElement('select');
+        select.setAttribute('jslog', `${VisualLogging.dropDown().track({ change: true }).context(name)}`);
         select.classList.add('chrome-select');
         for (let index = 0; index < options.length; ++index) {
             const option = select.createChild('option');
             option.value = options[index];
             option.textContent = options[index];
+            option.setAttribute('jslog', `${VisualLogging.item(Platform.StringUtilities.toKebabCase(options[index])).track({ click: true })}`);
         }
         if (title) {
             Tooltip.install(select, title);
-            ARIAUtils.setAccessibleName(select, title);
+            ARIAUtils.setLabel(select, title);
         }
         select.addEventListener('input', this.validateControls.bind(this, false), false);
         select.addEventListener('blur', this.validateControls.bind(this, false), false);
@@ -303,8 +359,12 @@ export class Editor {
             else {
                 ARIAUtils.setInvalid(input, true);
             }
-            if (!forceValid && errorMessage && !this.errorMessageContainer.textContent) {
-                this.errorMessageContainer.textContent = errorMessage;
+            if (!forceValid && errorMessage) {
+                if (this.errorMessageContainer.textContent) {
+                    const br = document.createElement('br');
+                    this.errorMessageContainer.append(br);
+                }
+                this.errorMessageContainer.append(errorMessage);
             }
             allValid = allValid && valid;
         }

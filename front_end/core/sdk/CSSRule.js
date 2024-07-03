@@ -2,9 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as TextUtils from '../../models/text_utils/text_utils.js';
+import * as Platform from '../platform/platform.js';
 import { CSSContainerQuery } from './CSSContainerQuery.js';
+import { CSSLayer } from './CSSLayer.js';
 import { CSSMedia } from './CSSMedia.js';
+import { CSSScope } from './CSSScope.js';
 import { CSSStyleDeclaration, Type } from './CSSStyleDeclaration.js';
+import { CSSSupports } from './CSSSupports.js';
 export class CSSRule {
     cssModelInternal;
     styleSheetId;
@@ -29,22 +33,25 @@ export class CSSRule {
     }
     resourceURL() {
         if (!this.styleSheetId) {
-            return '';
+            return Platform.DevToolsPath.EmptyUrlString;
         }
         const styleSheetHeader = this.getStyleSheetHeader(this.styleSheetId);
         return styleSheetHeader.resourceURL();
     }
     isUserAgent() {
-        return this.origin === "user-agent" /* UserAgent */;
+        return this.origin === "user-agent" /* Protocol.CSS.StyleSheetOrigin.UserAgent */;
     }
     isInjected() {
-        return this.origin === "injected" /* Injected */;
+        return this.origin === "injected" /* Protocol.CSS.StyleSheetOrigin.Injected */;
     }
     isViaInspector() {
-        return this.origin === "inspector" /* Inspector */;
+        return this.origin === "inspector" /* Protocol.CSS.StyleSheetOrigin.Inspector */;
     }
     isRegular() {
-        return this.origin === "regular" /* Regular */;
+        return this.origin === "regular" /* Protocol.CSS.StyleSheetOrigin.Regular */;
+    }
+    isKeyframeRule() {
+        return false;
     }
     cssModel() {
         return this.cssModelInternal;
@@ -52,16 +59,20 @@ export class CSSRule {
     getStyleSheetHeader(styleSheetId) {
         const styleSheetHeader = this.cssModelInternal.styleSheetHeaderForId(styleSheetId);
         console.assert(styleSheetHeader !== null);
-        return /** @type {!CSSStyleSheetHeader} */ styleSheetHeader;
+        return styleSheetHeader;
     }
 }
 class CSSValue {
     text;
     range;
+    specificity;
     constructor(payload) {
         this.text = payload.text;
         if (payload.range) {
             this.range = TextUtils.TextRange.TextRange.fromObject(payload.range);
+        }
+        if (payload.specificity) {
+            this.specificity = payload.specificity;
         }
     }
     rebase(edit) {
@@ -73,17 +84,26 @@ class CSSValue {
 }
 export class CSSStyleRule extends CSSRule {
     selectors;
+    nestingSelectors;
     media;
     containerQueries;
+    supports;
+    scopes;
+    layers;
+    ruleTypes;
     wasUsed;
     constructor(cssModel, payload, wasUsed) {
-        // TODO(crbug.com/1011811): Replace with spread operator or better types once Closure is gone.
         super(cssModel, { origin: payload.origin, style: payload.style, styleSheetId: payload.styleSheetId });
         this.reinitializeSelectors(payload.selectorList);
+        this.nestingSelectors = payload.nestingSelectors;
         this.media = payload.media ? CSSMedia.parseMediaArrayPayload(cssModel, payload.media) : [];
         this.containerQueries = payload.containerQueries ?
             CSSContainerQuery.parseContainerQueriesPayload(cssModel, payload.containerQueries) :
             [];
+        this.scopes = payload.scopes ? CSSScope.parseScopesPayload(cssModel, payload.scopes) : [];
+        this.supports = payload.supports ? CSSSupports.parseSupportsPayload(cssModel, payload.supports) : [];
+        this.layers = payload.layers ? CSSLayer.parseLayerPayload(cssModel, payload.layers) : [];
+        this.ruleTypes = payload.ruleTypes || [];
         this.wasUsed = wasUsed || false;
     }
     static createDummyRule(cssModel, selectorText) {
@@ -98,7 +118,7 @@ export class CSSStyleRule extends CSSRule {
                 shorthandEntries: [],
                 cssProperties: [],
             },
-            origin: "inspector" /* Inspector */,
+            origin: "inspector" /* Protocol.CSS.StyleSheetOrigin.Inspector */,
         };
         return new CSSStyleRule(cssModel, dummyPayload);
     }
@@ -123,6 +143,11 @@ export class CSSStyleRule extends CSSRule {
         return this.selectors.map(selector => selector.text).join(', ');
     }
     selectorRange() {
+        // Nested group rules might not contain a selector.
+        // https://www.w3.org/TR/css-nesting-1/#conditionals
+        if (this.selectors.length === 0) {
+            return null;
+        }
         const firstRange = this.selectors[0].range;
         const lastRange = this.selectors[this.selectors.length - 1].range;
         if (!firstRange || !lastRange) {
@@ -159,21 +184,57 @@ export class CSSStyleRule extends CSSRule {
                 this.selectors[i].rebase(edit);
             }
         }
-        for (const media of this.media) {
-            media.rebase(edit);
-        }
-        for (const containerQuery of this.containerQueries) {
-            containerQuery.rebase(edit);
-        }
+        this.media.forEach(media => media.rebase(edit));
+        this.containerQueries.forEach(cq => cq.rebase(edit));
+        this.scopes.forEach(scope => scope.rebase(edit));
+        this.supports.forEach(supports => supports.rebase(edit));
         super.rebase(edit);
     }
 }
+export class CSSPropertyRule extends CSSRule {
+    #name;
+    constructor(cssModel, payload) {
+        super(cssModel, { origin: payload.origin, style: payload.style, styleSheetId: payload.styleSheetId });
+        this.#name = new CSSValue(payload.propertyName);
+    }
+    propertyName() {
+        return this.#name;
+    }
+    initialValue() {
+        return this.style.hasActiveProperty('initial-value') ? this.style.getPropertyValue('initial-value') : null;
+    }
+    syntax() {
+        return this.style.getPropertyValue('syntax');
+    }
+    inherits() {
+        return this.style.getPropertyValue('inherits') === 'true';
+    }
+    setPropertyName(newPropertyName) {
+        const styleSheetId = this.styleSheetId;
+        if (!styleSheetId) {
+            throw new Error('No rule stylesheet id');
+        }
+        const range = this.#name.range;
+        if (!range) {
+            throw new Error('Property name is not editable');
+        }
+        return this.cssModelInternal.setPropertyRulePropertyName(styleSheetId, range, newPropertyName);
+    }
+}
+export class CSSFontPaletteValuesRule extends CSSRule {
+    #paletteName;
+    constructor(cssModel, payload) {
+        super(cssModel, { origin: payload.origin, style: payload.style, styleSheetId: payload.styleSheetId });
+        this.#paletteName = new CSSValue(payload.fontPaletteName);
+    }
+    name() {
+        return this.#paletteName;
+    }
+}
 export class CSSKeyframesRule {
-    #cssModel;
     #animationName;
     #keyframesInternal;
     constructor(cssModel, payload) {
-        this.#cssModel = cssModel;
         this.#animationName = new CSSValue(payload.animationName);
         this.#keyframesInternal = payload.keyframes.map(keyframeRule => new CSSKeyframeRule(cssModel, keyframeRule));
     }
@@ -187,7 +248,6 @@ export class CSSKeyframesRule {
 export class CSSKeyframeRule extends CSSRule {
     #keyText;
     constructor(cssModel, payload) {
-        // TODO(crbug.com/1011811): Replace with spread operator or better types once Closure is gone.
         super(cssModel, { origin: payload.origin, style: payload.style, styleSheetId: payload.styleSheetId });
         this.reinitializeKey(payload.keyText);
     }
@@ -209,6 +269,9 @@ export class CSSKeyframeRule extends CSSRule {
         }
         super.rebase(edit);
     }
+    isKeyframeRule() {
+        return true;
+    }
     setKeyText(newKeyText) {
         const styleSheetId = this.styleSheetId;
         if (!styleSheetId) {
@@ -219,6 +282,30 @@ export class CSSKeyframeRule extends CSSRule {
             throw 'Keyframe key is not editable';
         }
         return this.cssModelInternal.setKeyframeKey(styleSheetId, range, newKeyText);
+    }
+}
+export class CSSPositionFallbackRule {
+    #name;
+    #tryRules;
+    constructor(cssModel, payload) {
+        this.#name = new CSSValue(payload.name);
+        this.#tryRules = payload.tryRules.map(tryRule => new CSSRule(cssModel, { origin: tryRule.origin, style: tryRule.style, styleSheetId: tryRule.styleSheetId }));
+    }
+    name() {
+        return this.#name;
+    }
+    tryRules() {
+        return this.#tryRules;
+    }
+}
+export class CSSPositionTryRule extends CSSRule {
+    #name;
+    constructor(cssModel, payload) {
+        super(cssModel, { origin: payload.origin, style: payload.style, styleSheetId: payload.styleSheetId });
+        this.#name = new CSSValue(payload.name);
+    }
+    name() {
+        return this.#name;
     }
 }
 //# sourceMappingURL=CSSRule.js.map

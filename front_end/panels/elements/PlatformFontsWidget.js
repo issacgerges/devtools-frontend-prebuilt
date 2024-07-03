@@ -32,20 +32,32 @@ import platformFontsWidgetStyles from './platformFontsWidget.css.js';
 import * as UI from '../../ui/legacy/legacy.js';
 const UIStrings = {
     /**
-    *@description Section title text content in Platform Fonts Widget of the Elements panel
-    */
+     *@description Section title text content in Platform Fonts Widget of the Elements panel
+     */
     renderedFonts: 'Rendered Fonts',
     /**
-    *@description Text in Platform Fonts Widget of the Elements panel
-    */
+     *@description Font property title text content in Platform Fonts Widget of the Elements panel
+     */
+    familyName: 'Family name',
+    /**
+     *@description Font property title text content in Platform Fonts Widget of the Elements panel
+     */
+    postScriptName: 'PostScript name',
+    /**
+     *@description Font property title text content in Platform Fonts Widget of the Elements panel
+     */
+    fontOrigin: 'Font origin',
+    /**
+     *@description Text in Platform Fonts Widget of the Elements panel
+     */
     networkResource: 'Network resource',
     /**
-    *@description Text in Platform Fonts Widget of the Elements panel
-    */
+     *@description Text in Platform Fonts Widget of the Elements panel
+     */
     localFile: 'Local file',
     /**
-    *@description Text in Platform Fonts Widget of the Elements panel. Indicates a number of glyphs (characters) .
-    */
+     *@description Text in Platform Fonts Widget of the Elements panel. Indicates a number of glyphs (characters) .
+     */
     dGlyphs: '{n, plural, =1 {(# glyph)} other {(# glyphs)}}',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/elements/PlatformFontsWidget.ts', UIStrings);
@@ -57,7 +69,7 @@ export class PlatformFontsWidget extends UI.ThrottledWidget.ThrottledWidget {
     constructor(sharedModel) {
         super(true);
         this.sharedModel = sharedModel;
-        this.sharedModel.addEventListener("ComputedStyleChanged" /* ComputedStyleChanged */, this.update, this);
+        this.sharedModel.addEventListener("ComputedStyleChanged" /* Events.ComputedStyleChanged */, this.update, this);
         this.sectionTitle = document.createElement('div');
         this.sectionTitle.classList.add('title');
         this.contentElement.classList.add('platform-fonts');
@@ -65,15 +77,13 @@ export class PlatformFontsWidget extends UI.ThrottledWidget.ThrottledWidget {
         this.sectionTitle.textContent = i18nString(UIStrings.renderedFonts);
         this.fontStatsSection = this.contentElement.createChild('div', 'stats-section');
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     doUpdate() {
         const cssModel = this.sharedModel.cssModel();
         const node = this.sharedModel.node();
         if (!node || !cssModel) {
             return Promise.resolve();
         }
-        return cssModel.platformFontsPromise(node.id).then(this.refreshUI.bind(this, node));
+        return cssModel.getPlatformFonts(node.id).then(this.refreshUI.bind(this, node));
     }
     refreshUI(node, platformFonts) {
         if (this.sharedModel.node() !== node) {
@@ -88,17 +98,17 @@ export class PlatformFontsWidget extends UI.ThrottledWidget.ThrottledWidget {
         platformFonts.sort(function (a, b) {
             return b.glyphCount - a.glyphCount;
         });
-        for (let i = 0; i < platformFonts.length; ++i) {
+        for (const platformFont of platformFonts) {
             const fontStatElement = this.fontStatsSection.createChild('div', 'font-stats-item');
-            const fontNameElement = fontStatElement.createChild('span', 'font-name');
-            fontNameElement.textContent = platformFonts[i].familyName;
-            const fontDelimeterElement = fontStatElement.createChild('span', 'font-delimeter');
-            fontDelimeterElement.textContent = '\u2014';
-            const fontOrigin = fontStatElement.createChild('span');
-            fontOrigin.textContent =
-                platformFonts[i].isCustomFont ? i18nString(UIStrings.networkResource) : i18nString(UIStrings.localFile);
-            const fontUsageElement = fontStatElement.createChild('span', 'font-usage');
-            const usage = platformFonts[i].glyphCount;
+            const familyNameElement = fontStatElement.createChild('div');
+            familyNameElement.textContent = `${UIStrings.familyName}: ${platformFont.familyName}`;
+            const postScriptNameElement = fontStatElement.createChild('div');
+            postScriptNameElement.textContent = `${UIStrings.postScriptName}: ${platformFont.postScriptName}`;
+            const fontOriginElement = fontStatElement.createChild('div');
+            const fontOrigin = platformFont.isCustomFont ? i18nString(UIStrings.networkResource) : i18nString(UIStrings.localFile);
+            fontOriginElement.textContent = `${UIStrings.fontOrigin}: ${fontOrigin}`;
+            const fontUsageElement = fontOriginElement.createChild('span', 'font-usage');
+            const usage = platformFont.glyphCount;
             fontUsageElement.textContent = i18nString(UIStrings.dGlyphs, { n: usage });
         }
     }

@@ -34,31 +34,31 @@ import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 const UIStrings = {
     /**
-    *@description Latency download total format in Network Time Calculator of the Network panel
-    *@example {20ms} PH1
-    *@example {20ms} PH2
-    *@example {40ms} PH3
-    */
+     *@description Latency download total format in Network Time Calculator of the Network panel
+     *@example {20ms} PH1
+     *@example {20ms} PH2
+     *@example {40ms} PH3
+     */
     sLatencySDownloadSTotal: '{PH1} latency, {PH2} download ({PH3} total)',
     /**
-    *@description Latency format in Network Time Calculator of the Network panel
-    *@example {20ms} PH1
-    */
+     *@description Latency format in Network Time Calculator of the Network panel
+     *@example {20ms} PH1
+     */
     sLatency: '{PH1} latency',
     /**
-    * @description Duration of the download in ms/s shown for a completed network request.
-    * @example {5ms} PH1
-    */
+     * @description Duration of the download in ms/s shown for a completed network request.
+     * @example {5ms} PH1
+     */
     sDownload: '{PH1} download',
     /**
-    *@description From service worker format in Network Time Calculator of the Network panel
-    *@example {20ms latency} PH1
-    */
+     *@description From service worker format in Network Time Calculator of the Network panel
+     *@example {20ms latency} PH1
+     */
     sFromServiceworker: '{PH1} (from `ServiceWorker`)',
     /**
-    *@description From cache format in Network Time Calculator of the Network panel
-    *@example {20ms latency} PH1
-    */
+     *@description From cache format in Network Time Calculator of the Network panel
+     *@example {20ms latency} PH1
+     */
     sFromCache: '{PH1} (from cache)',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/network/NetworkTimeCalculator.ts', UIStrings);
@@ -171,8 +171,8 @@ export class NetworkTimeCalculator extends Common.ObjectWrapper.ObjectWrapper {
         return percentage * this.boundarySpan() / 100 + this.minimumBoundary();
     }
     boundaryChanged() {
-        this.boundryChangedEventThrottler.schedule(async () => {
-            this.dispatchEventToListeners(Events.BoundariesChanged);
+        void this.boundryChangedEventThrottler.schedule(async () => {
+            this.dispatchEventToListeners("BoundariesChanged" /* Events.BoundariesChanged */);
         });
     }
     updateBoundariesForEventTime(eventTime) {
@@ -230,7 +230,7 @@ export class NetworkTimeCalculator extends Common.ObjectWrapper.ObjectWrapper {
     extendBoundariesToIncludeTimestamp(timestamp) {
         const previousMinimumBoundary = this.minimumBoundaryInternal;
         const previousMaximumBoundary = this.maximumBoundaryInternal;
-        const minOffset = _minimumSpread;
+        const minOffset = MINIMUM_SPREAD;
         if (this.minimumBoundaryInternal === -1 || this.maximumBoundaryInternal === -1) {
             this.minimumBoundaryInternal = timestamp;
             this.maximumBoundaryInternal = timestamp + minOffset;
@@ -250,15 +250,7 @@ export class NetworkTimeCalculator extends Common.ObjectWrapper.ObjectWrapper {
         return 0;
     }
 }
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const _minimumSpread = 0.1;
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["BoundariesChanged"] = "BoundariesChanged";
-})(Events || (Events = {}));
+const MINIMUM_SPREAD = 0.1;
 export class NetworkTransferTimeCalculator extends NetworkTimeCalculator {
     constructor() {
         super(false);

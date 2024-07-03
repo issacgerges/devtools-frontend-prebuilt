@@ -4,11 +4,14 @@
 import * as Common from '../../core/common/common.js';
 import networkWaterfallColumnStyles from './networkWaterfallColumn.css.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
+import * as Coordinator from '../../ui/components/render_coordinator/render_coordinator.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 import { RequestTimeRangeNameToColor } from './NetworkOverview.js';
-import { RequestTimeRangeNames, RequestTimingView } from './RequestTimingView.js';
+import { RequestTimingView } from './RequestTimingView.js';
+import networkingTimingTableStyles from './networkTimingTable.css.js';
 const BAR_SPACING = 1;
+const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
 export class NetworkWaterfallColumn extends UI.Widget.VBox {
     canvas;
     canvasPosition;
@@ -28,7 +31,6 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     nodes;
     hoveredNode;
     eventDividers;
-    updateRequestID;
     styleForTimeRangeName;
     styleForWaitingResourceType;
     styleForDownloadingResourceType;
@@ -57,7 +59,8 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         this.offsetHeight = 0;
         this.startTime = this.calculator.minimumBoundary();
         this.endTime = this.calculator.maximumBoundary();
-        this.popoverHelper = new UI.PopoverHelper.PopoverHelper(this.element, this.getPopoverRequest.bind(this));
+        this.popoverHelper =
+            new UI.PopoverHelper.PopoverHelper(this.element, this.getPopoverRequest.bind(this), 'network.timing');
         this.popoverHelper.setHasPadding(true);
         this.popoverHelper.setTimeout(300, 300);
         this.nodes = [];
@@ -70,34 +73,37 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         const resourceStyleTuple = NetworkWaterfallColumn.buildResourceTypeStyle();
         this.styleForWaitingResourceType = resourceStyleTuple[0];
         this.styleForDownloadingResourceType = resourceStyleTuple[1];
-        const baseLineColor = ThemeSupport.ThemeSupport.instance().patchColorText('#a5a5a5', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        const baseLineColor = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-state-disabled');
         this.wiskerStyle = { borderColor: baseLineColor, lineWidth: 1, fillStyle: undefined };
         this.hoverDetailsStyle = { fillStyle: baseLineColor, lineWidth: 1, borderColor: baseLineColor };
         this.pathForStyle = new Map();
         this.textLayers = [];
     }
     static buildRequestTimeRangeStyle() {
-        const types = RequestTimeRangeNames;
         const styleMap = new Map();
-        styleMap.set(types.Connecting, { fillStyle: RequestTimeRangeNameToColor[types.Connecting] });
-        styleMap.set(types.SSL, { fillStyle: RequestTimeRangeNameToColor[types.SSL] });
-        styleMap.set(types.DNS, { fillStyle: RequestTimeRangeNameToColor[types.DNS] });
-        styleMap.set(types.Proxy, { fillStyle: RequestTimeRangeNameToColor[types.Proxy] });
-        styleMap.set(types.Blocking, { fillStyle: RequestTimeRangeNameToColor[types.Blocking] });
-        styleMap.set(types.Push, { fillStyle: RequestTimeRangeNameToColor[types.Push] });
-        styleMap.set(types.Queueing, { fillStyle: RequestTimeRangeNameToColor[types.Queueing], lineWidth: 2, borderColor: 'lightgrey' });
+        styleMap.set("connecting" /* RequestTimeRangeNames.Connecting */, { fillStyle: RequestTimeRangeNameToColor["connecting" /* RequestTimeRangeNames.Connecting */] });
+        styleMap.set("ssl" /* RequestTimeRangeNames.SSL */, { fillStyle: RequestTimeRangeNameToColor["ssl" /* RequestTimeRangeNames.SSL */] });
+        styleMap.set("dns" /* RequestTimeRangeNames.DNS */, { fillStyle: RequestTimeRangeNameToColor["dns" /* RequestTimeRangeNames.DNS */] });
+        styleMap.set("proxy" /* RequestTimeRangeNames.Proxy */, { fillStyle: RequestTimeRangeNameToColor["proxy" /* RequestTimeRangeNames.Proxy */] });
+        styleMap.set("blocking" /* RequestTimeRangeNames.Blocking */, { fillStyle: RequestTimeRangeNameToColor["blocking" /* RequestTimeRangeNames.Blocking */] });
+        styleMap.set("push" /* RequestTimeRangeNames.Push */, { fillStyle: RequestTimeRangeNameToColor["push" /* RequestTimeRangeNames.Push */] });
+        styleMap.set("queueing" /* RequestTimeRangeNames.Queueing */, {
+            fillStyle: RequestTimeRangeNameToColor["queueing" /* RequestTimeRangeNames.Queueing */],
+            lineWidth: 2,
+            borderColor: 'lightgrey',
+        });
         // This ensures we always show at least 2 px for a request.
-        styleMap.set(types.Receiving, {
-            fillStyle: RequestTimeRangeNameToColor[types.Receiving],
+        styleMap.set("receiving" /* RequestTimeRangeNames.Receiving */, {
+            fillStyle: RequestTimeRangeNameToColor["receiving" /* RequestTimeRangeNames.Receiving */],
             lineWidth: 2,
             borderColor: '#03A9F4',
         });
-        styleMap.set(types.Waiting, { fillStyle: RequestTimeRangeNameToColor[types.Waiting] });
-        styleMap.set(types.ReceivingPush, { fillStyle: RequestTimeRangeNameToColor[types.ReceivingPush] });
-        styleMap.set(types.ServiceWorker, { fillStyle: RequestTimeRangeNameToColor[types.ServiceWorker] });
-        styleMap.set(types.ServiceWorkerPreparation, { fillStyle: RequestTimeRangeNameToColor[types.ServiceWorkerPreparation] });
-        styleMap.set(types.ServiceWorkerRespondWith, {
-            fillStyle: RequestTimeRangeNameToColor[types.ServiceWorkerRespondWith],
+        styleMap.set("waiting" /* RequestTimeRangeNames.Waiting */, { fillStyle: RequestTimeRangeNameToColor["waiting" /* RequestTimeRangeNames.Waiting */] });
+        styleMap.set("receiving-push" /* RequestTimeRangeNames.ReceivingPush */, { fillStyle: RequestTimeRangeNameToColor["receiving-push" /* RequestTimeRangeNames.ReceivingPush */] });
+        styleMap.set("serviceworker" /* RequestTimeRangeNames.ServiceWorker */, { fillStyle: RequestTimeRangeNameToColor["serviceworker" /* RequestTimeRangeNames.ServiceWorker */] });
+        styleMap.set("serviceworker-preparation" /* RequestTimeRangeNames.ServiceWorkerPreparation */, { fillStyle: RequestTimeRangeNameToColor["serviceworker-preparation" /* RequestTimeRangeNames.ServiceWorkerPreparation */] });
+        styleMap.set("serviceworker-respondwith" /* RequestTimeRangeNames.ServiceWorkerRespondWith */, {
+            fillStyle: RequestTimeRangeNameToColor["serviceworker-respondwith" /* RequestTimeRangeNames.ServiceWorkerRespondWith */],
         });
         return styleMap;
     }
@@ -133,23 +139,23 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         }
         return [waitingStyleMap, downloadingStyleMap];
         function toBorderColor(color) {
-            const parsedColor = Common.Color.Color.parse(color);
+            const parsedColor = Common.Color.parse(color)?.as("hsl" /* Common.Color.Format.HSL */);
             if (!parsedColor) {
                 return '';
             }
-            const hsla = parsedColor.hsla();
-            hsla[1] /= 2;
-            hsla[2] -= Math.min(hsla[2], 0.2);
-            return parsedColor.asString(null);
+            let { s, l } = parsedColor;
+            s /= 2;
+            l -= Math.min(l, 0.2);
+            return new Common.Color.HSL(parsedColor.h, s, l, parsedColor.alpha).asString();
         }
         function toWaitingColor(color) {
-            const parsedColor = Common.Color.Color.parse(color);
+            const parsedColor = Common.Color.parse(color)?.as("hsl" /* Common.Color.Format.HSL */);
             if (!parsedColor) {
                 return '';
             }
-            const hsla = parsedColor.hsla();
-            hsla[2] *= 1.1;
-            return parsedColor.asString(null);
+            let { l } = parsedColor;
+            l *= 1.1;
+            return new Common.Color.HSL(parsedColor.h, parsedColor.s, l, parsedColor.alpha).asString();
         }
     }
     resetPaths() {
@@ -184,14 +190,14 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         if (!request) {
             return null;
         }
-        const useTimingBars = !Common.Settings.Settings.instance().moduleSetting('networkColorCodeResourceTypes').get() &&
+        const useTimingBars = !Common.Settings.Settings.instance().moduleSetting('network-color-code-resource-types').get() &&
             !this.calculator.startAtZero;
         let range;
         let start;
         let end;
         if (useTimingBars) {
             range = RequestTimingView.calculateRequestTimeRanges(request, 0)
-                .find(data => data.name === RequestTimeRangeNames.Total);
+                .find(data => data.name === "total" /* RequestTimeRangeNames.Total */);
             start = this.timeToPosition(range.start);
             end = this.timeToPosition(range.end);
         }
@@ -223,6 +229,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
             box: anchorBox,
             show: (popover) => {
                 const content = RequestTimingView.createTimingTable(request, this.calculator);
+                popover.registerCSSFiles([networkingTimingTableStyles]);
                 popover.contentElement.appendChild(content);
                 return Promise.resolve(true);
             },
@@ -270,10 +277,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         return this.nodes[Math.floor((this.scrollTop + y - this.headerHeight) / this.rowHeight)];
     }
     scheduleDraw() {
-        if (this.updateRequestID) {
-            return;
-        }
-        this.updateRequestID = this.element.window().requestAnimationFrame(() => this.update());
+        void coordinator.write('NetworkWaterfallColumn.render', () => this.update());
     }
     update(scrollTop, eventDividers, nodes) {
         if (scrollTop !== undefined && this.scrollTop !== scrollTop) {
@@ -286,10 +290,6 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         }
         if (eventDividers !== undefined) {
             this.eventDividers = eventDividers;
-        }
-        if (this.updateRequestID) {
-            this.element.window().cancelAnimationFrame(this.updateRequestID);
-            delete this.updateRequestID;
         }
         this.startTime = this.calculator.minimumBoundary();
         this.endTime = this.calculator.maximumBoundary();
@@ -325,7 +325,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     didDrawForTest() {
     }
     draw() {
-        const useTimingBars = !Common.Settings.Settings.instance().moduleSetting('networkColorCodeResourceTypes').get() &&
+        const useTimingBars = !Common.Settings.Settings.instance().moduleSetting('network-color-code-resource-types').get() &&
             !this.calculator.startAtZero;
         const nodes = this.nodes;
         const context = this.canvas.getContext('2d');
@@ -359,8 +359,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         }
         this.drawLayers(context, useTimingBars);
         context.save();
-        context.fillStyle =
-            ThemeSupport.ThemeSupport.instance().patchColorText('#888', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        context.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-state-disabled');
         for (const textData of this.textLayers) {
             context.fillText(textData.text, textData.x, textData.y);
         }
@@ -415,15 +414,14 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         context.restore();
     }
     getBarHeight(type) {
-        const types = RequestTimeRangeNames;
         switch (type) {
-            case types.Connecting:
-            case types.SSL:
-            case types.DNS:
-            case types.Proxy:
-            case types.Blocking:
-            case types.Push:
-            case types.Queueing:
+            case "connecting" /* RequestTimeRangeNames.Connecting */:
+            case "ssl" /* RequestTimeRangeNames.SSL */:
+            case "dns" /* RequestTimeRangeNames.DNS */:
+            case "proxy" /* RequestTimeRangeNames.Proxy */:
+            case "blocking" /* RequestTimeRangeNames.Blocking */:
+            case "push" /* RequestTimeRangeNames.Push */:
+            case "queueing" /* RequestTimeRangeNames.Queueing */:
                 return 7;
             default:
                 return 13;
@@ -488,7 +486,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         }
         if (!this.calculator.startAtZero) {
             const queueingRange = RequestTimingView.calculateRequestTimeRanges(request, 0)
-                .find(data => data.name === RequestTimeRangeNames.Total);
+                .find(data => data.name === "total" /* RequestTimeRangeNames.Total */);
             const leftLabelWidth = labels ? context.measureText(labels.left).width : 0;
             const leftTextPlacedInBar = leftLabelWidth < ranges.mid - ranges.start;
             const wiskerTextPadding = 13;
@@ -513,7 +511,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         const ranges = RequestTimingView.calculateRequestTimeRanges(request, 0);
         let index = 0;
         for (const range of ranges) {
-            if (range.name === RequestTimeRangeNames.Total || range.name === RequestTimeRangeNames.Sending ||
+            if (range.name === "total" /* RequestTimeRangeNames.Total */ || range.name === "sending" /* RequestTimeRangeNames.Sending */ ||
                 range.end - range.start === 0) {
                 continue;
             }

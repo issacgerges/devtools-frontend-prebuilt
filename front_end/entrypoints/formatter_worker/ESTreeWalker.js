@@ -1,43 +1,23 @@
 // Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-const SkipSubTreeObject = {};
 export class ESTreeWalker {
-    beforeVisit;
-    afterVisit;
-    walkNulls;
+    #beforeVisit;
+    #afterVisit;
     constructor(beforeVisit, afterVisit) {
-        this.beforeVisit = beforeVisit;
-        this.afterVisit = afterVisit || function () { };
-        this.walkNulls = false;
-    }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    static get SkipSubtree() {
-        return SkipSubTreeObject;
-    }
-    setWalkNulls(value) {
-        this.walkNulls = value;
+        this.#beforeVisit = beforeVisit;
+        this.#afterVisit = afterVisit;
     }
     walk(ast) {
-        this.innerWalk(ast, null);
+        this.#innerWalk(ast, null);
     }
-    innerWalk(node, parent) {
-        if (!node && parent && this.walkNulls) {
-            const result = { raw: 'null', value: null, parent: null };
-            // Otherwise Closure can't handle the definition
-            result.type = 'Literal';
-            node = result;
-        }
+    #innerWalk(node, parent) {
         if (!node) {
             return;
         }
         node.parent = parent;
-        if (this.beforeVisit.call(null, node) === ESTreeWalker.SkipSubtree) {
-            this.afterVisit.call(null, node);
-            return;
-        }
-        const walkOrder = _walkOrder[node.type];
+        this.#beforeVisit.call(null, node);
+        const walkOrder = WALK_ORDER[node.type];
         if (!walkOrder) {
             console.error('Walk order not defined for ' + node.type);
             return;
@@ -46,10 +26,10 @@ export class ESTreeWalker {
             const templateLiteral = node;
             const expressionsLength = templateLiteral.expressions.length;
             for (let i = 0; i < expressionsLength; ++i) {
-                this.innerWalk(templateLiteral.quasis[i], templateLiteral);
-                this.innerWalk(templateLiteral.expressions[i], templateLiteral);
+                this.#innerWalk(templateLiteral.quasis[i], templateLiteral);
+                this.#innerWalk(templateLiteral.expressions[i], templateLiteral);
             }
-            this.innerWalk(templateLiteral.quasis[expressionsLength], templateLiteral);
+            this.#innerWalk(templateLiteral.quasis[expressionsLength], templateLiteral);
         }
         else {
             for (let i = 0; i < walkOrder.length; ++i) {
@@ -60,24 +40,22 @@ export class ESTreeWalker {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const entity = node[walkOrder[i]];
                 if (Array.isArray(entity)) {
-                    this.walkArray(entity, node);
+                    this.#walkArray(entity, node);
                 }
                 else {
-                    this.innerWalk(entity, node);
+                    this.#innerWalk(entity, node);
                 }
             }
         }
-        this.afterVisit.call(null, node);
+        this.#afterVisit.call(null, node);
     }
-    walkArray(nodeArray, parentNode) {
+    #walkArray(nodeArray, parentNode) {
         for (let i = 0; i < nodeArray.length; ++i) {
-            this.innerWalk(nodeArray[i], parentNode);
+            this.#innerWalk(nodeArray[i], parentNode);
         }
     }
 }
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _walkOrder = {
+const WALK_ORDER = {
     'AwaitExpression': ['argument'],
     'ArrayExpression': ['elements'],
     'ArrayPattern': ['elements'],
@@ -133,6 +111,7 @@ const _walkOrder = {
     'ReturnStatement': ['argument'],
     'SequenceExpression': ['expressions'],
     'SpreadElement': ['argument'],
+    'StaticBlock': ['body'],
     'Super': [],
     'SwitchCase': ['test', 'consequent'],
     'SwitchStatement': ['discriminant', 'cases'],

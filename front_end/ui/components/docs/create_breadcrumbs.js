@@ -5,6 +5,7 @@ import * as LitHtml from '../../lit-html/lit-html.js';
 export function init() {
     const container = document.createElement('ul');
     // clang-format off
+    // eslint-disable-next-line rulesdir/ban_a_tags_in_lit_html
     LitHtml.render(LitHtml.html `
 
   <style>
@@ -30,7 +31,7 @@ export function init() {
     }
   </style>
 
-  <ul class="docs-breadcrumbs">
+  <ul class="docs-breadcrumbs component-docs-ui">
     <li><a href="/">Index</a></li>
     <li><a href=".">All component examples</a></li>
   </ul>`, container);

@@ -1,12 +1,11 @@
 // Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
 export var Events;
 (function (Events) {
     Events["AppendedToURL"] = "appendedToURL";
     Events["CanceledSaveURL"] = "canceledSaveURL";
+    Events["ColorThemeChanged"] = "colorThemeChanged";
     Events["ContextMenuCleared"] = "contextMenuCleared";
     Events["ContextMenuItemSelected"] = "contextMenuItemSelected";
     Events["DeviceCountUpdated"] = "deviceCountUpdated";
@@ -25,7 +24,7 @@ export var Events;
     Events["IndexingWorked"] = "indexingWorked";
     Events["IndexingDone"] = "indexingDone";
     Events["KeyEventUnhandled"] = "keyEventUnhandled";
-    Events["ReattachMainTarget"] = "reattachMainTarget";
+    Events["ReattachRootTarget"] = "reattachMainTarget";
     Events["ReloadInspectedPage"] = "reloadInspectedPage";
     Events["RevealSourceLine"] = "revealSourceLine";
     Events["SavedURL"] = "savedURL";
@@ -34,11 +33,10 @@ export var Events;
     Events["SetUseSoftMenu"] = "setUseSoftMenu";
     Events["ShowPanel"] = "showPanel";
 })(Events || (Events = {}));
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
 export const EventDescriptors = [
     [Events.AppendedToURL, 'appendedToURL', ['url']],
     [Events.CanceledSaveURL, 'canceledSaveURL', ['url']],
+    [Events.ColorThemeChanged, 'colorThemeChanged', []],
     [Events.ContextMenuCleared, 'contextMenuCleared', []],
     [Events.ContextMenuItemSelected, 'contextMenuItemSelected', ['id']],
     [Events.DeviceCountUpdated, 'deviceCountUpdated', ['count']],
@@ -57,7 +55,7 @@ export const EventDescriptors = [
     [Events.IndexingWorked, 'indexingWorked', ['requestId', 'fileSystemPath', 'worked']],
     [Events.IndexingDone, 'indexingDone', ['requestId', 'fileSystemPath']],
     [Events.KeyEventUnhandled, 'keyEventUnhandled', ['event']],
-    [Events.ReattachMainTarget, 'reattachMainTarget', []],
+    [Events.ReattachRootTarget, 'reattachMainTarget', []],
     [Events.ReloadInspectedPage, 'reloadInspectedPage', ['hard']],
     [Events.RevealSourceLine, 'revealSourceLine', ['url', 'lineNumber', 'columnNumber']],
     [Events.SavedURL, 'savedURL', ['url', 'fileSystemPath']],
@@ -66,37 +64,4 @@ export const EventDescriptors = [
     [Events.SetUseSoftMenu, 'setUseSoftMenu', ['useSoftMenu']],
     [Events.ShowPanel, 'showPanel', ['panelName']],
 ];
-/**
- * Enum for recordPerformanceHistogram
- * Warning: There is another definition of this enum in the DevTools code
- * base, keep them in sync:
- * front_end/devtools_compatibility.js
- * @readonly
- */
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var EnumeratedHistogram;
-(function (EnumeratedHistogram) {
-    EnumeratedHistogram["ActionTaken"] = "DevTools.ActionTaken";
-    EnumeratedHistogram["PanelClosed"] = "DevTools.PanelClosed";
-    EnumeratedHistogram["PanelShown"] = "DevTools.PanelShown";
-    EnumeratedHistogram["SidebarPaneShown"] = "DevTools.SidebarPaneShown";
-    EnumeratedHistogram["KeyboardShortcutFired"] = "DevTools.KeyboardShortcutFired";
-    EnumeratedHistogram["IssueCreated"] = "DevTools.IssueCreated";
-    EnumeratedHistogram["IssuesPanelIssueExpanded"] = "DevTools.IssuesPanelIssueExpanded";
-    EnumeratedHistogram["IssuesPanelOpenedFrom"] = "DevTools.IssuesPanelOpenedFrom";
-    EnumeratedHistogram["IssuesPanelResourceOpened"] = "DevTools.IssuesPanelResourceOpened";
-    EnumeratedHistogram["KeybindSetSettingChanged"] = "DevTools.KeybindSetSettingChanged";
-    EnumeratedHistogram["DualScreenDeviceEmulated"] = "DevTools.DualScreenDeviceEmulated";
-    EnumeratedHistogram["ExperimentEnabledAtLaunch"] = "DevTools.ExperimentEnabledAtLaunch";
-    EnumeratedHistogram["ExperimentEnabled"] = "DevTools.ExperimentEnabled";
-    EnumeratedHistogram["ExperimentDisabled"] = "DevTools.ExperimentDisabled";
-    EnumeratedHistogram["CssEditorOpened"] = "DevTools.CssEditorOpened";
-    EnumeratedHistogram["DeveloperResourceLoaded"] = "DevTools.DeveloperResourceLoaded";
-    EnumeratedHistogram["DeveloperResourceScheme"] = "DevTools.DeveloperResourceScheme";
-    EnumeratedHistogram["LinearMemoryInspectorRevealedFrom"] = "DevTools.LinearMemoryInspector.RevealedFrom";
-    EnumeratedHistogram["LinearMemoryInspectorTarget"] = "DevTools.LinearMemoryInspector.Target";
-    EnumeratedHistogram["Language"] = "DevTools.Language";
-    EnumeratedHistogram["ConsoleShowsCorsErrors"] = "DevTools.ConsoleShowsCorsErrors";
-})(EnumeratedHistogram || (EnumeratedHistogram = {}));
 //# sourceMappingURL=InspectorFrontendHostAPI.js.map

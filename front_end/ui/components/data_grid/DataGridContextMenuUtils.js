@@ -25,13 +25,13 @@ export function addColumnVisibilityCheckboxes(dataGrid, contextMenu) {
             continue;
         }
         /**
-           * Append checkboxes for each column that is hideable; these will show
-           * with checkboxes if the column is visible and allow the user to click in
-           * the context menu to toggle an individual column's visibility.
-           */
+         * Append checkboxes for each column that is hideable; these will show
+         * with checkboxes if the column is visible and allow the user to click in
+         * the context menu to toggle an individual column's visibility.
+         */
         contextMenu.defaultSection().appendCheckboxItem(column.title, () => {
             toggleColumnVisibility(dataGrid, column);
-        }, column.visible);
+        }, { checked: column.visible, jslogContext: column.id });
     }
 }
 /**
@@ -48,7 +48,7 @@ export function addSortableColumnItems(dataGrid, contextMenu) {
         for (const column of sortableColumns) {
             contextMenu.defaultSection().appendItem(column.title, () => {
                 dataGrid.dispatchEvent(new ContextMenuColumnSortClickEvent(column));
-            });
+            }, { jslogContext: column.id });
         }
     }
 }

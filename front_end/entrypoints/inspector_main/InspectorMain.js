@@ -12,20 +12,27 @@ import * as UI from '../../ui/legacy/legacy.js';
 import nodeIconStyles from './nodeIcon.css.js';
 const UIStrings = {
     /**
-    * @description Text that refers to the main target. The main target is the primary webpage that
-    * DevTools is connected to. This text is used in various places in the UI as a label/name to inform
-    * the user which target/webpage they are currently connected to, as DevTools may connect to multiple
-    * targets at the same time in some scenarios.
-    */
+     * @description Text that refers to the main target. The main target is the primary webpage that
+     * DevTools is connected to. This text is used in various places in the UI as a label/name to inform
+     * the user which target/webpage they are currently connected to, as DevTools may connect to multiple
+     * targets at the same time in some scenarios.
+     */
     main: 'Main',
     /**
-    * @description A warning shown to the user when JavaScript is disabled on the webpage that
-    * DevTools is connected to.
-    */
+     * @description Text that refers to the tab target. The tab target is the Chrome tab that
+     * DevTools is connected to. This text is used in various places in the UI as a label/name to inform
+     * the user which target they are currently connected to, as DevTools may connect to multiple
+     * targets at the same time in some scenarios.
+     */
+    tab: 'Tab',
+    /**
+     * @description A warning shown to the user when JavaScript is disabled on the webpage that
+     * DevTools is connected to.
+     */
     javascriptIsDisabled: 'JavaScript is disabled',
     /**
-    * @description A message that prompts the user to open devtools for a specific environment (Node.js)
-    */
+     * @description A message that prompts the user to open devtools for a specific environment (Node.js)
+     */
     openDedicatedTools: 'Open dedicated DevTools for `Node.js`',
 };
 const str_ = i18n.i18n.registerUIStrings('entrypoints/inspector_main/InspectorMain.ts', UIStrings);
@@ -42,9 +49,28 @@ export class InspectorMainImpl {
     async run() {
         let firstCall = true;
         await SDK.Connections.initMainConnection(async () => {
-            const type = Root.Runtime.Runtime.queryParam('v8only') ? SDK.Target.Type.Node : SDK.Target.Type.Frame;
+            const type = Root.Runtime.Runtime.queryParam('v8only') ?
+                SDK.Target.Type.Node :
+                (Root.Runtime.Runtime.queryParam('targetType') === 'tab' ? SDK.Target.Type.Tab : SDK.Target.Type.Frame);
+            // TODO(crbug.com/1348385): support waiting for debugger with tab target.
             const waitForDebuggerInPage = type === SDK.Target.Type.Frame && Root.Runtime.Runtime.queryParam('panel') === 'sources';
-            const target = SDK.TargetManager.TargetManager.instance().createTarget('main', i18nString(UIStrings.main), type, null, undefined, waitForDebuggerInPage);
+            const name = type === SDK.Target.Type.Frame ? i18nString(UIStrings.main) : i18nString(UIStrings.tab);
+            const target = SDK.TargetManager.TargetManager.instance().createTarget('main', name, type, null, undefined, waitForDebuggerInPage);
+            const waitForPrimaryPageTarget = () => {
+                return new Promise(resolve => {
+                    const targetManager = SDK.TargetManager.TargetManager.instance();
+                    targetManager.observeTargets({
+                        targetAdded: (target) => {
+                            if (target === targetManager.primaryPageTarget()) {
+                                target.setName(i18nString(UIStrings.main));
+                                resolve(target);
+                            }
+                        },
+                        targetRemoved: (_) => { },
+                    });
+                });
+            };
+            await waitForPrimaryPageTarget();
             // Only resume target during the first connection,
             // subsequent connections are due to connection hand-over,
             // there is no need to pause in debugger.
@@ -61,7 +87,9 @@ export class InspectorMainImpl {
                     debuggerModel.pause();
                 }
             }
-            target.runtimeAgent().invoke_runIfWaitingForDebugger();
+            if (type !== SDK.Target.Type.Tab) {
+                void target.runtimeAgent().invoke_runIfWaitingForDebugger();
+            }
         }, Components.TargetDetachedDialog.TargetDetachedDialog.webSocketConnectionLost);
         new SourcesPanelIndicator();
         new BackendSettingsSync();
@@ -72,59 +100,43 @@ export class InspectorMainImpl {
     }
 }
 Common.Runnable.registerEarlyInitializationRunnable(InspectorMainImpl.instance);
-let reloadActionDelegateInstance;
 export class ReloadActionDelegate {
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!reloadActionDelegateInstance || forceNew) {
-            reloadActionDelegateInstance = new ReloadActionDelegate();
-        }
-        return reloadActionDelegateInstance;
-    }
-    handleAction(context, actionId) {
+    handleAction(_context, actionId) {
         switch (actionId) {
-            case 'inspector_main.reload':
+            case 'inspector-main.reload':
                 SDK.ResourceTreeModel.ResourceTreeModel.reloadAllPages(false);
                 return true;
-            case 'inspector_main.hard-reload':
+            case 'inspector-main.hard-reload':
                 SDK.ResourceTreeModel.ResourceTreeModel.reloadAllPages(true);
                 return true;
         }
         return false;
     }
 }
-let focusDebuggeeActionDelegateInstance;
 export class FocusDebuggeeActionDelegate {
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!focusDebuggeeActionDelegateInstance || forceNew) {
-            focusDebuggeeActionDelegateInstance = new FocusDebuggeeActionDelegate();
-        }
-        return focusDebuggeeActionDelegateInstance;
-    }
     handleAction(_context, _actionId) {
-        const mainTarget = SDK.TargetManager.TargetManager.instance().mainTarget();
+        const mainTarget = SDK.TargetManager.TargetManager.instance().primaryPageTarget();
         if (!mainTarget) {
             return false;
         }
-        mainTarget.pageAgent().invoke_bringToFront();
+        void mainTarget.pageAgent().invoke_bringToFront();
         return true;
     }
 }
 let nodeIndicatorInstance;
 export class NodeIndicator {
-    element;
-    button;
+    #element;
+    #button;
     constructor() {
         const element = document.createElement('div');
-        const shadowRoot = UI.Utils.createShadowRootWithCoreStyles(element, { cssFile: [nodeIconStyles], delegatesFocus: undefined });
-        this.element = shadowRoot.createChild('div', 'node-icon');
+        const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(element, { cssFile: [nodeIconStyles], delegatesFocus: undefined });
+        this.#element = shadowRoot.createChild('div', 'node-icon');
         element.addEventListener('click', () => Host.InspectorFrontendHost.InspectorFrontendHostInstance.openNodeFrontend(), false);
-        this.button = new UI.Toolbar.ToolbarItem(element);
-        this.button.setTitle(i18nString(UIStrings.openDedicatedTools));
-        SDK.TargetManager.TargetManager.instance().addEventListener(SDK.TargetManager.Events.AvailableTargetsChanged, event => this.update(event.data));
-        this.button.setVisible(false);
-        this.update([]);
+        this.#button = new UI.Toolbar.ToolbarItem(element);
+        this.#button.setTitle(i18nString(UIStrings.openDedicatedTools));
+        SDK.TargetManager.TargetManager.instance().addEventListener("AvailableTargetsChanged" /* SDK.TargetManager.Events.AvailableTargetsChanged */, event => this.#update(event.data));
+        this.#button.setVisible(false);
+        this.#update([]);
     }
     static instance(opts = { forceNew: null }) {
         const { forceNew } = opts;
@@ -133,65 +145,63 @@ export class NodeIndicator {
         }
         return nodeIndicatorInstance;
     }
-    update(targetInfos) {
+    #update(targetInfos) {
         const hasNode = Boolean(targetInfos.find(target => target.type === 'node' && !target.attached));
-        this.element.classList.toggle('inactive', !hasNode);
+        this.#element.classList.toggle('inactive', !hasNode);
         if (hasNode) {
-            this.button.setVisible(true);
+            this.#button.setVisible(true);
         }
     }
     item() {
-        return this.button;
+        return this.#button;
     }
 }
 export class SourcesPanelIndicator {
     constructor() {
         Common.Settings.Settings.instance()
-            .moduleSetting('javaScriptDisabled')
+            .moduleSetting('java-script-disabled')
             .addChangeListener(javaScriptDisabledChanged);
         javaScriptDisabledChanged();
         function javaScriptDisabledChanged() {
-            let icon = null;
-            const javaScriptDisabled = Common.Settings.Settings.instance().moduleSetting('javaScriptDisabled').get();
-            if (javaScriptDisabled) {
-                icon = UI.Icon.Icon.create('smallicon-warning');
-                UI.Tooltip.Tooltip.install(icon, i18nString(UIStrings.javascriptIsDisabled));
+            const warnings = [];
+            if (Common.Settings.Settings.instance().moduleSetting('java-script-disabled').get()) {
+                warnings.push(i18nString(UIStrings.javascriptIsDisabled));
             }
-            UI.InspectorView.InspectorView.instance().setPanelIcon('sources', icon);
+            UI.InspectorView.InspectorView.instance().setPanelWarnings('sources', warnings);
         }
     }
 }
 export class BackendSettingsSync {
-    autoAttachSetting;
-    adBlockEnabledSetting;
-    emulatePageFocusSetting;
+    #autoAttachSetting;
+    #adBlockEnabledSetting;
+    #emulatePageFocusSetting;
     constructor() {
-        this.autoAttachSetting = Common.Settings.Settings.instance().moduleSetting('autoAttachToCreatedPages');
-        this.autoAttachSetting.addChangeListener(this.updateAutoAttach, this);
-        this.updateAutoAttach();
-        this.adBlockEnabledSetting = Common.Settings.Settings.instance().moduleSetting('network.adBlockingEnabled');
-        this.adBlockEnabledSetting.addChangeListener(this.update, this);
-        this.emulatePageFocusSetting = Common.Settings.Settings.instance().moduleSetting('emulatePageFocus');
-        this.emulatePageFocusSetting.addChangeListener(this.update, this);
+        this.#autoAttachSetting = Common.Settings.Settings.instance().moduleSetting('auto-attach-to-created-pages');
+        this.#autoAttachSetting.addChangeListener(this.#updateAutoAttach, this);
+        this.#updateAutoAttach();
+        this.#adBlockEnabledSetting = Common.Settings.Settings.instance().moduleSetting('network.ad-blocking-enabled');
+        this.#adBlockEnabledSetting.addChangeListener(this.#update, this);
+        this.#emulatePageFocusSetting = Common.Settings.Settings.instance().moduleSetting('emulate-page-focus');
+        this.#emulatePageFocusSetting.addChangeListener(this.#update, this);
         SDK.TargetManager.TargetManager.instance().observeTargets(this);
     }
-    updateTarget(target) {
-        if (target.type() !== SDK.Target.Type.Frame || target.parentTarget()) {
+    #updateTarget(target) {
+        if (target.type() !== SDK.Target.Type.Frame || target.parentTarget()?.type() === SDK.Target.Type.Frame) {
             return;
         }
-        target.pageAgent().invoke_setAdBlockingEnabled({ enabled: this.adBlockEnabledSetting.get() });
-        target.emulationAgent().invoke_setFocusEmulationEnabled({ enabled: this.emulatePageFocusSetting.get() });
+        void target.pageAgent().invoke_setAdBlockingEnabled({ enabled: this.#adBlockEnabledSetting.get() });
+        void target.emulationAgent().invoke_setFocusEmulationEnabled({ enabled: this.#emulatePageFocusSetting.get() });
     }
-    updateAutoAttach() {
-        Host.InspectorFrontendHost.InspectorFrontendHostInstance.setOpenNewWindowForPopups(this.autoAttachSetting.get());
+    #updateAutoAttach() {
+        Host.InspectorFrontendHost.InspectorFrontendHostInstance.setOpenNewWindowForPopups(this.#autoAttachSetting.get());
     }
-    update() {
+    #update() {
         for (const target of SDK.TargetManager.TargetManager.instance().targets()) {
-            this.updateTarget(target);
+            this.#updateTarget(target);
         }
     }
     targetAdded(target) {
-        this.updateTarget(target);
+        this.#updateTarget(target);
     }
     targetRemoved(_target) {
     }

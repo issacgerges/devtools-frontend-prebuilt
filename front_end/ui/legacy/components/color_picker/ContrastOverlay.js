@@ -19,7 +19,7 @@ export class ContrastOverlay {
         this.visible = false;
         this.contrastRatioSVG = UI.UIUtils.createSVGChild(colorElement, 'svg', 'spectrum-contrast-container fill');
         this.contrastRatioLines = new Map();
-        if (Root.Runtime.experiments.isEnabled('APCA')) {
+        if (Root.Runtime.experiments.isEnabled('apca')) {
             this.contrastRatioLines.set('APCA', UI.UIUtils.createSVGChild(this.contrastRatioSVG, 'path', 'spectrum-contrast-line'));
         }
         else {
@@ -31,19 +31,19 @@ export class ContrastOverlay {
         this.contrastRatioLineBuilder = new ContrastRatioLineBuilder(this.contrastInfo);
         this.contrastRatioLinesThrottler = new Common.Throttler.Throttler(0);
         this.drawContrastRatioLinesBound = this.drawContrastRatioLines.bind(this);
-        this.contrastInfo.addEventListener("ContrastInfoUpdated" /* ContrastInfoUpdated */, this.update.bind(this));
+        this.contrastInfo.addEventListener("ContrastInfoUpdated" /* Events.ContrastInfoUpdated */, this.update.bind(this));
     }
     update() {
         if (!this.visible || this.contrastInfo.isNull()) {
             return;
         }
-        if (Root.Runtime.experiments.isEnabled('APCA') && this.contrastInfo.contrastRatioAPCA() === null) {
+        if (Root.Runtime.experiments.isEnabled('apca') && this.contrastInfo.contrastRatioAPCA() === null) {
             return;
         }
         if (!this.contrastInfo.contrastRatio()) {
             return;
         }
-        this.contrastRatioLinesThrottler.schedule(this.drawContrastRatioLinesBound);
+        void this.contrastRatioLinesThrottler.schedule(this.drawContrastRatioLinesBound);
     }
     setDimensions(width, height) {
         this.width = width;
@@ -73,7 +73,7 @@ export class ContrastRatioLineBuilder {
         this.contrastInfo = contrastInfo;
     }
     drawContrastRatioLine(width, height, level) {
-        const isAPCA = Root.Runtime.experiments.isEnabled('APCA');
+        const isAPCA = Root.Runtime.experiments.isEnabled('apca');
         const requiredContrast = isAPCA ? this.contrastInfo.contrastRatioAPCAThreshold() : this.contrastInfo.contrastRatioThreshold(level);
         if (!width || !height || requiredContrast === null) {
             return null;
@@ -89,7 +89,7 @@ export class ContrastRatioLineBuilder {
             return null;
         }
         const fgRGBA = color.rgba();
-        const fgHSVA = color.hsva();
+        const fgHSVA = color.as("hsl" /* Common.Color.Format.HSL */).hsva();
         const bgRGBA = bgColor.rgba();
         const bgLuminance = Common.ColorUtils.luminance(bgRGBA);
         let blendedRGBA = Common.ColorUtils.blendColors(fgRGBA, bgRGBA);
@@ -97,7 +97,7 @@ export class ContrastRatioLineBuilder {
         const fgIsLighter = fgLuminance > bgLuminance;
         const desiredLuminance = isAPCA ?
             Common.ColorUtils.desiredLuminanceAPCA(bgLuminance, requiredContrast, fgIsLighter) :
-            Common.Color.Color.desiredLuminance(bgLuminance, requiredContrast, fgIsLighter);
+            Common.Color.desiredLuminance(bgLuminance, requiredContrast, fgIsLighter);
         if (isAPCA &&
             Math.abs(Math.round(Common.ColorUtils.contrastRatioByLuminanceAPCA(desiredLuminance, bgLuminance))) <
                 requiredContrast) {
@@ -107,15 +107,14 @@ export class ContrastRatioLineBuilder {
         let currentSlope = 0;
         const candidateHSVA = [fgHSVA[H], 0, 0, fgHSVA[A]];
         let pathBuilder = [];
-        const candidateRGBA = [];
-        Common.Color.Color.hsva2rgba(candidateHSVA, candidateRGBA);
+        const candidateRGBA = Common.Color.hsva2rgba(candidateHSVA);
         blendedRGBA = Common.ColorUtils.blendColors(candidateRGBA, bgRGBA);
         let candidateLuminance = (candidateHSVA) => {
-            return Common.ColorUtils.luminance(Common.ColorUtils.blendColors(Common.Color.Color.fromHSVA(candidateHSVA).rgba(), bgRGBA));
+            return Common.ColorUtils.luminance(Common.ColorUtils.blendColors(Common.Color.Legacy.fromHSVA(candidateHSVA).rgba(), bgRGBA));
         };
-        if (Root.Runtime.experiments.isEnabled('APCA')) {
+        if (Root.Runtime.experiments.isEnabled('apca')) {
             candidateLuminance = (candidateHSVA) => {
-                return Common.ColorUtils.luminanceAPCA(Common.ColorUtils.blendColors(Common.Color.Color.fromHSVA(candidateHSVA).rgba(), bgRGBA));
+                return Common.ColorUtils.luminanceAPCA(Common.ColorUtils.blendColors(Common.Color.Legacy.fromHSVA(candidateHSVA).rgba(), bgRGBA));
             };
         }
         // Plot V for values of S such that the computed luminance approximates
@@ -128,7 +127,7 @@ export class ContrastRatioLineBuilder {
             // Extrapolate the approximate next value for `v` using the approximate
             // gradient of the curve.
             candidateHSVA[V] = lastV + currentSlope * dS;
-            const v = Common.Color.Color.approachColorValue(candidateHSVA, bgRGBA, V, desiredLuminance, candidateLuminance);
+            const v = Common.Color.approachColorValue(candidateHSVA, bgRGBA, V, desiredLuminance, candidateLuminance);
             if (v === null) {
                 break;
             }
@@ -144,7 +143,7 @@ export class ContrastRatioLineBuilder {
         if (s < 1 + dS) {
             s -= dS;
             candidateHSVA[V] = 1;
-            s = Common.Color.Color.approachColorValue(candidateHSVA, bgRGBA, S, desiredLuminance, candidateLuminance);
+            s = Common.Color.approachColorValue(candidateHSVA, bgRGBA, S, desiredLuminance, candidateLuminance);
             if (s !== null) {
                 pathBuilder = pathBuilder.concat(['L', (s * width).toFixed(2), '-0.1']);
             }

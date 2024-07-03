@@ -5,93 +5,96 @@ import * as Platform from '../../core/platform/platform.js';
 import { CSSFormatter } from './CSSFormatter.js';
 import { AbortTokenization, createTokenizer } from './FormatterWorker.js';
 import { JavaScriptFormatter } from './JavaScriptFormatter.js';
+import { JSONFormatter } from './JSONFormatter.js';
 export class HTMLFormatter {
-    builder;
-    jsFormatter;
-    cssFormatter;
-    text;
-    lineEndings;
-    model;
+    #builder;
+    #jsFormatter;
+    #jsonFormatter;
+    #cssFormatter;
+    #text;
+    #lineEndings;
+    #model;
     constructor(builder) {
-        this.builder = builder;
-        this.jsFormatter = new JavaScriptFormatter(builder);
-        this.cssFormatter = new CSSFormatter(builder);
+        this.#builder = builder;
+        this.#jsFormatter = new JavaScriptFormatter(builder);
+        this.#jsonFormatter = new JSONFormatter(builder);
+        this.#cssFormatter = new CSSFormatter(builder);
     }
     format(text, lineEndings) {
-        this.text = text;
-        this.lineEndings = lineEndings;
-        this.model = new HTMLModel(text);
-        this.walk(this.model.document());
+        this.#text = text;
+        this.#lineEndings = lineEndings;
+        this.#model = new HTMLModel(text);
+        this.#walk(this.#model.document());
     }
-    formatTokensTill(element, offset) {
-        if (!this.model) {
+    #formatTokensTill(element, offset) {
+        if (!this.#model) {
             return;
         }
-        let nextToken = this.model.peekToken();
+        let nextToken = this.#model.peekToken();
         while (nextToken && nextToken.startOffset < offset) {
-            const token = this.model.nextToken();
-            this.formatToken(element, token);
-            nextToken = this.model.peekToken();
+            const token = this.#model.nextToken();
+            this.#formatToken(element, token);
+            nextToken = this.#model.peekToken();
         }
     }
-    walk(element) {
+    #walk(element) {
         if (!element.openTag || !element.closeTag) {
             throw new Error('Element is missing open or close tag');
         }
         if (element.parent) {
-            this.formatTokensTill(element.parent, element.openTag.startOffset);
+            this.#formatTokensTill(element.parent, element.openTag.startOffset);
         }
-        this.beforeOpenTag(element);
-        this.formatTokensTill(element, element.openTag.endOffset);
-        this.afterOpenTag(element);
+        this.#beforeOpenTag(element);
+        this.#formatTokensTill(element, element.openTag.endOffset);
+        this.#afterOpenTag(element);
         for (let i = 0; i < element.children.length; ++i) {
-            this.walk(element.children[i]);
+            this.#walk(element.children[i]);
         }
-        this.formatTokensTill(element, element.closeTag.startOffset);
-        this.beforeCloseTag(element);
-        this.formatTokensTill(element, element.closeTag.endOffset);
-        this.afterCloseTag(element);
+        this.#formatTokensTill(element, element.closeTag.startOffset);
+        this.#beforeCloseTag(element);
+        this.#formatTokensTill(element, element.closeTag.endOffset);
+        this.#afterCloseTag(element);
     }
-    beforeOpenTag(element) {
-        if (!this.model) {
+    #beforeOpenTag(element) {
+        if (!this.#model) {
             return;
         }
-        if (!element.children.length || element === this.model.document()) {
+        if (!element.children.length || element === this.#model.document()) {
             return;
         }
-        this.builder.addNewLine();
+        this.#builder.addNewLine();
     }
-    afterOpenTag(element) {
-        if (!this.model) {
+    #afterOpenTag(element) {
+        if (!this.#model) {
             return;
         }
-        if (!element.children.length || element === this.model.document()) {
+        if (!element.children.length || element === this.#model.document()) {
             return;
         }
-        this.builder.increaseNestingLevel();
-        this.builder.addNewLine();
+        this.#builder.increaseNestingLevel();
+        this.#builder.addNewLine();
     }
-    beforeCloseTag(element) {
-        if (!this.model) {
+    #beforeCloseTag(element) {
+        if (!this.#model) {
             return;
         }
-        if (!element.children.length || element === this.model.document()) {
+        if (!element.children.length || element === this.#model.document()) {
             return;
         }
-        this.builder.decreaseNestingLevel();
-        this.builder.addNewLine();
+        this.#builder.decreaseNestingLevel();
+        this.#builder.addNewLine();
     }
-    afterCloseTag(_element) {
-        this.builder.addNewLine();
+    #afterCloseTag(_element) {
+        this.#builder.addNewLine();
     }
-    formatToken(element, token) {
+    #formatToken(element, token) {
         if (Platform.StringUtilities.isWhitespace(token.value)) {
             return;
         }
         if (hasTokenInSet(token.type, 'comment') || hasTokenInSet(token.type, 'meta')) {
-            this.builder.addNewLine();
-            this.builder.addToken(token.value.trim(), token.startOffset);
-            this.builder.addNewLine();
+            this.#builder.addNewLine();
+            this.#builder.addToken(token.value.trim(), token.startOffset);
+            this.#builder.addNewLine();
             return;
         }
         if (!element.openTag || !element.closeTag) {
@@ -99,55 +102,56 @@ export class HTMLFormatter {
         }
         const isBodyToken = element.openTag.endOffset <= token.startOffset && token.startOffset < element.closeTag.startOffset;
         if (isBodyToken && element.name === 'style') {
-            this.builder.addNewLine();
-            this.builder.increaseNestingLevel();
-            this.cssFormatter.format(this.text || '', this.lineEndings || [], token.startOffset, token.endOffset);
-            this.builder.decreaseNestingLevel();
+            this.#builder.addNewLine();
+            this.#builder.increaseNestingLevel();
+            this.#cssFormatter.format(this.#text || '', this.#lineEndings || [], token.startOffset, token.endOffset);
+            this.#builder.decreaseNestingLevel();
             return;
         }
         if (isBodyToken && element.name === 'script') {
-            this.builder.addNewLine();
-            this.builder.increaseNestingLevel();
-            if (this.scriptTagIsJavaScript(element)) {
-                this.jsFormatter.format(this.text || '', this.lineEndings || [], token.startOffset, token.endOffset);
+            this.#builder.addNewLine();
+            this.#builder.increaseNestingLevel();
+            if (scriptTagIsJavaScript(element)) {
+                this.#jsFormatter.format(this.#text || '', this.#lineEndings || [], token.startOffset, token.endOffset);
+            }
+            else if (scriptTagIsJSON(element)) {
+                this.#jsonFormatter.format(this.#text || '', this.#lineEndings || [], token.startOffset, token.endOffset);
             }
             else {
-                this.builder.addToken(token.value, token.startOffset);
-                this.builder.addNewLine();
+                this.#builder.addToken(token.value, token.startOffset);
+                this.#builder.addNewLine();
             }
-            this.builder.decreaseNestingLevel();
+            this.#builder.decreaseNestingLevel();
             return;
         }
         if (!isBodyToken && hasTokenInSet(token.type, 'attribute')) {
-            this.builder.addSoftSpace();
+            this.#builder.addSoftSpace();
         }
-        this.builder.addToken(token.value, token.startOffset);
+        this.#builder.addToken(token.value, token.startOffset);
     }
-    scriptTagIsJavaScript(element) {
-        if (!element.openTag) {
-            return true;
-        }
-        if (!element.openTag.attributes.has('type')) {
-            return true;
-        }
-        let type = element.openTag.attributes.get('type');
-        if (!type) {
-            return true;
-        }
-        type = type.toLowerCase();
-        const isWrappedInQuotes = /^(["\'])(.*)\1$/.exec(type.trim());
-        if (isWrappedInQuotes) {
-            type = isWrappedInQuotes[2];
-        }
-        return HTMLFormatter.SupportedJavaScriptMimeTypes.has(type.trim());
+}
+function scriptTagIsJavaScript(element) {
+    if (!element.openTag) {
+        return true;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    static SupportedJavaScriptMimeTypes = new Set([
+    if (!element.openTag.attributes.has('type')) {
+        return true;
+    }
+    let type = element.openTag.attributes.get('type');
+    if (!type) {
+        return true;
+    }
+    type = type.toLowerCase();
+    const isWrappedInQuotes = /^(["\'])(.*)\1$/.exec(type.trim());
+    if (isWrappedInQuotes) {
+        type = isWrappedInQuotes[2];
+    }
+    return [
         'application/ecmascript',
         'application/javascript',
         'application/x-ecmascript',
         'application/x-javascript',
+        'module',
         'text/ecmascript',
         'text/javascript',
         'text/javascript1.0',
@@ -160,7 +164,30 @@ export class HTMLFormatter {
         'text/livescript',
         'text/x-ecmascript',
         'text/x-javascript',
-    ]);
+    ].includes(type.trim());
+}
+function scriptTagIsJSON(element) {
+    if (!element.openTag) {
+        return false;
+    }
+    let type = element.openTag.attributes.get('type');
+    if (!type) {
+        return false;
+    }
+    type = type.toLowerCase();
+    const isWrappedInQuotes = /^(["\'])(.*)\1$/.exec(type.trim());
+    if (isWrappedInQuotes) {
+        type = isWrappedInQuotes[2];
+    }
+    const isSubtype = /^application\/\w+\+json$/.exec(type.trim());
+    if (isSubtype) {
+        type = 'application/json';
+    }
+    return [
+        'application/json',
+        'importmap',
+        'speculationrules',
+    ].includes(type.trim());
 }
 function hasTokenInSet(tokenTypes, type) {
     // We prefix the CodeMirror HTML tokenizer with the xml- prefix
@@ -170,47 +197,113 @@ function hasTokenInSet(tokenTypes, type) {
     return tokenTypes.has(type) || tokenTypes.has(`xml-${type}`);
 }
 export class HTMLModel {
-    state;
-    documentInternal;
-    stack;
-    tokens;
-    tokenIndex;
-    attributes;
-    attributeName;
-    tagName;
-    isOpenTag;
-    tagStartOffset;
-    tagEndOffset;
+    #state;
+    #documentInternal;
+    #stack;
+    #tokens;
+    #tokenIndex;
+    #attributes;
+    #attributeName;
+    #tagName;
+    #isOpenTag;
+    #tagStartOffset;
+    #tagEndOffset;
     constructor(text) {
-        this.state = "Initial" /* Initial */;
-        this.documentInternal = new FormatterElement('document');
-        this.documentInternal.openTag = new Tag('document', 0, 0, new Map(), true, false);
-        this.documentInternal.closeTag = new Tag('document', text.length, text.length, new Map(), false, false);
-        this.stack = [this.documentInternal];
-        this.tokens = [];
-        this.tokenIndex = 0;
-        this.build(text);
-        this.attributes = new Map();
-        this.attributeName = '';
-        this.tagName = '';
-        this.isOpenTag = false;
+        this.#state = "Initial" /* ParseState.Initial */;
+        this.#documentInternal = new FormatterElement('document');
+        this.#documentInternal.openTag = new Tag('document', 0, 0, new Map(), true, false);
+        this.#documentInternal.closeTag = new Tag('document', text.length, text.length, new Map(), false, false);
+        this.#stack = [this.#documentInternal];
+        this.#tokens = [];
+        this.#tokenIndex = 0;
+        this.#build(text);
+        this.#attributes = new Map();
+        this.#attributeName = '';
+        this.#tagName = '';
+        this.#isOpenTag = false;
     }
-    build(text) {
+    #build(text) {
         const tokenizer = createTokenizer('text/html');
-        let lastOffset = 0;
-        const lowerCaseText = text.toLowerCase();
+        let baseOffset = 0, lastOffset = 0;
+        let pendingToken = null;
+        const pushToken = (token) => {
+            this.#tokens.push(token);
+            this.#updateDOM(token);
+            const element = this.#stack[this.#stack.length - 1];
+            if (element && (element.name === 'script' || element.name === 'style') && element.openTag &&
+                element.openTag.endOffset === lastOffset) {
+                return AbortTokenization;
+            }
+            return;
+        };
+        const processToken = (tokenValue, type, tokenStart, tokenEnd) => {
+            tokenStart += baseOffset;
+            tokenEnd += baseOffset;
+            lastOffset = tokenEnd;
+            const tokenType = type ? new Set(type.split(' ')) : new Set();
+            const token = new Token(tokenValue, tokenType, tokenStart, tokenEnd);
+            // This is a pretty horrible work-around for two bugs in the CodeMirror 5 HTML
+            // tokenizer, which aren't easy to fix because it shares this code with the
+            // XML parser[^1], and which is also not actively maintained anymore. The
+            // real fix here is to migrate off of CodeMirror 5 also for formatting and
+            // pretty printing and use CodeMirror 6 instead, but that's a bigger
+            // project.
+            //
+            // For now we ducktape the first problem by merging a '/' token
+            // following a string token in the HTML formatter, which does the trick, and
+            // also merging the error tokens for unescaped ampersands with text tokens
+            // (where `type` is `null`) preceeding and following the error tokens.
+            //
+            // [^1]: https://github.com/codemirror/codemirror5/blob/742627a/mode/xml/xml.js#L137
+            //
+            if (pendingToken) {
+                if (tokenValue === '/' && type === 'attribute' && pendingToken.type.has('string')) {
+                    token.startOffset = pendingToken.startOffset;
+                    token.value = `${pendingToken.value}${tokenValue}`;
+                    token.type = pendingToken.type;
+                }
+                else if ((tokenValue.startsWith('&') && type === 'error' && pendingToken.type.size === 0) ||
+                    (type === null && pendingToken.type.has('error'))) {
+                    pendingToken.endOffset = token.endOffset;
+                    pendingToken.value += tokenValue;
+                    pendingToken.type = token.type;
+                    return;
+                }
+                else if (pushToken(pendingToken) === AbortTokenization) {
+                    return AbortTokenization;
+                }
+                pendingToken = null;
+            }
+            if (type === 'string' || type === null) {
+                pendingToken = token;
+                return;
+            }
+            return pushToken(token);
+        };
         while (true) {
-            tokenizer(text.substring(lastOffset), processToken.bind(this, lastOffset));
+            baseOffset = lastOffset;
+            tokenizer(text.substring(lastOffset), processToken);
+            if (pendingToken) {
+                pushToken(pendingToken);
+                pendingToken = null;
+            }
             if (lastOffset >= text.length) {
                 break;
             }
-            const element = this.stack[this.stack.length - 1];
+            const element = this.#stack[this.#stack.length - 1];
             if (!element) {
                 break;
             }
-            lastOffset = lowerCaseText.indexOf('</' + element.name, lastOffset);
-            if (lastOffset === -1) {
-                lastOffset = text.length;
+            while (true) {
+                lastOffset = text.indexOf('</', lastOffset);
+                if (lastOffset === -1) {
+                    lastOffset = text.length;
+                    break;
+                }
+                if (text.substring(lastOffset + 2).toLowerCase().startsWith(element.name)) {
+                    break;
+                }
+                lastOffset += 2;
             }
             if (!element.openTag) {
                 break;
@@ -218,143 +311,128 @@ export class HTMLModel {
             const tokenStart = element.openTag.endOffset;
             const tokenEnd = lastOffset;
             const tokenValue = text.substring(tokenStart, tokenEnd);
-            this.tokens.push(new Token(tokenValue, new Set(), tokenStart, tokenEnd));
+            this.#tokens.push(new Token(tokenValue, new Set(), tokenStart, tokenEnd));
         }
-        while (this.stack.length > 1) {
-            const element = this.stack[this.stack.length - 1];
+        while (this.#stack.length > 1) {
+            const element = this.#stack[this.#stack.length - 1];
             if (!element) {
                 break;
             }
-            this.popElement(new Tag(element.name, text.length, text.length, new Map(), false, false));
-        }
-        function processToken(baseOffset, tokenValue, type, tokenStart, tokenEnd) {
-            tokenStart += baseOffset;
-            tokenEnd += baseOffset;
-            lastOffset = tokenEnd;
-            const tokenType = type ? new Set(type.split(' ')) : new Set();
-            const token = new Token(tokenValue, tokenType, tokenStart, tokenEnd);
-            this.tokens.push(token);
-            this.updateDOM(token);
-            const element = this.stack[this.stack.length - 1];
-            if (element && (element.name === 'script' || element.name === 'style') && element.openTag &&
-                element.openTag.endOffset === lastOffset) {
-                return AbortTokenization;
-            }
-            return;
+            this.#popElement(new Tag(element.name, text.length, text.length, new Map(), false, false));
         }
     }
-    updateDOM(token) {
+    #updateDOM(token) {
         const value = token.value;
         const type = token.type;
-        switch (this.state) {
-            case "Initial" /* Initial */:
+        switch (this.#state) {
+            case "Initial" /* ParseState.Initial */:
                 if (hasTokenInSet(type, 'bracket') && (value === '<' || value === '</')) {
-                    this.onStartTag(token);
-                    this.state = "Tag" /* Tag */;
+                    this.#onStartTag(token);
+                    this.#state = "Tag" /* ParseState.Tag */;
                 }
                 return;
-            case "Tag" /* Tag */:
+            case "Tag" /* ParseState.Tag */:
                 if (hasTokenInSet(type, 'tag') && !hasTokenInSet(type, 'bracket')) {
-                    this.tagName = value.trim().toLowerCase();
+                    this.#tagName = value.trim().toLowerCase();
                 }
                 else if (hasTokenInSet(type, 'attribute')) {
-                    this.attributeName = value.trim().toLowerCase();
-                    this.attributes.set(this.attributeName, '');
-                    this.state = "AttributeName" /* AttributeName */;
+                    this.#attributeName = value.trim().toLowerCase();
+                    this.#attributes.set(this.#attributeName, '');
+                    this.#state = "AttributeName" /* ParseState.AttributeName */;
                 }
                 else if (hasTokenInSet(type, 'bracket') && (value === '>' || value === '/>')) {
-                    this.onEndTag(token);
-                    this.state = "Initial" /* Initial */;
+                    this.#onEndTag(token);
+                    this.#state = "Initial" /* ParseState.Initial */;
                 }
                 return;
-            case "AttributeName" /* AttributeName */:
+            case "AttributeName" /* ParseState.AttributeName */:
                 if (!type.size && value === '=') {
-                    this.state = "AttributeValue" /* AttributeValue */;
+                    this.#state = "AttributeValue" /* ParseState.AttributeValue */;
                 }
                 else if (hasTokenInSet(type, 'bracket') && (value === '>' || value === '/>')) {
-                    this.onEndTag(token);
-                    this.state = "Initial" /* Initial */;
+                    this.#onEndTag(token);
+                    this.#state = "Initial" /* ParseState.Initial */;
                 }
                 return;
-            case "AttributeValue" /* AttributeValue */:
+            case "AttributeValue" /* ParseState.AttributeValue */:
                 if (hasTokenInSet(type, 'string')) {
-                    this.attributes.set(this.attributeName, value);
-                    this.state = "Tag" /* Tag */;
+                    this.#attributes.set(this.#attributeName, value);
+                    this.#state = "Tag" /* ParseState.Tag */;
                 }
                 else if (hasTokenInSet(type, 'bracket') && (value === '>' || value === '/>')) {
-                    this.onEndTag(token);
-                    this.state = "Initial" /* Initial */;
+                    this.#onEndTag(token);
+                    this.#state = "Initial" /* ParseState.Initial */;
                 }
                 return;
         }
     }
-    onStartTag(token) {
-        this.tagName = '';
-        this.tagStartOffset = token.startOffset;
-        this.tagEndOffset = null;
-        this.attributes = new Map();
-        this.attributeName = '';
-        this.isOpenTag = token.value === '<';
+    #onStartTag(token) {
+        this.#tagName = '';
+        this.#tagStartOffset = token.startOffset;
+        this.#tagEndOffset = null;
+        this.#attributes = new Map();
+        this.#attributeName = '';
+        this.#isOpenTag = token.value === '<';
     }
-    onEndTag(token) {
-        this.tagEndOffset = token.endOffset;
-        const selfClosingTag = token.value === '/>' || SelfClosingTags.has(this.tagName);
-        const tag = new Tag(this.tagName, this.tagStartOffset || 0, this.tagEndOffset, this.attributes, this.isOpenTag, selfClosingTag);
-        this.onTagComplete(tag);
+    #onEndTag(token) {
+        this.#tagEndOffset = token.endOffset;
+        const selfClosingTag = token.value === '/>' || SelfClosingTags.has(this.#tagName);
+        const tag = new Tag(this.#tagName, this.#tagStartOffset || 0, this.#tagEndOffset, this.#attributes, this.#isOpenTag, selfClosingTag);
+        this.#onTagComplete(tag);
     }
-    onTagComplete(tag) {
+    #onTagComplete(tag) {
         if (tag.isOpenTag) {
-            const topElement = this.stack[this.stack.length - 1];
+            const topElement = this.#stack[this.#stack.length - 1];
             if (topElement) {
                 const tagSet = AutoClosingTags.get(topElement.name);
-                if (topElement !== this.documentInternal && topElement.openTag && topElement.openTag.selfClosingTag) {
-                    this.popElement(autocloseTag(topElement, topElement.openTag.endOffset));
+                if (topElement !== this.#documentInternal && topElement.openTag && topElement.openTag.selfClosingTag) {
+                    this.#popElement(autocloseTag(topElement, topElement.openTag.endOffset));
                 }
                 else if (tagSet && tagSet.has(tag.name)) {
-                    this.popElement(autocloseTag(topElement, tag.startOffset));
+                    this.#popElement(autocloseTag(topElement, tag.startOffset));
                 }
-                this.pushElement(tag);
+                this.#pushElement(tag);
             }
             return;
         }
-        let lastTag = this.stack[this.stack.length - 1];
-        while (this.stack.length > 1 && lastTag && lastTag.name !== tag.name) {
-            this.popElement(autocloseTag(lastTag, tag.startOffset));
-            lastTag = this.stack[this.stack.length - 1];
+        let lastTag = this.#stack[this.#stack.length - 1];
+        while (this.#stack.length > 1 && lastTag && lastTag.name !== tag.name) {
+            this.#popElement(autocloseTag(lastTag, tag.startOffset));
+            lastTag = this.#stack[this.#stack.length - 1];
         }
-        if (this.stack.length === 1) {
+        if (this.#stack.length === 1) {
             return;
         }
-        this.popElement(tag);
+        this.#popElement(tag);
         function autocloseTag(element, offset) {
             return new Tag(element.name, offset, offset, new Map(), false, false);
         }
     }
-    popElement(closeTag) {
-        const element = this.stack.pop();
+    #popElement(closeTag) {
+        const element = this.#stack.pop();
         if (!element) {
             return;
         }
         element.closeTag = closeTag;
     }
-    pushElement(openTag) {
-        const topElement = this.stack[this.stack.length - 1];
+    #pushElement(openTag) {
+        const topElement = this.#stack[this.#stack.length - 1];
         const newElement = new FormatterElement(openTag.name);
         if (topElement) {
             newElement.parent = topElement;
             topElement.children.push(newElement);
         }
         newElement.openTag = openTag;
-        this.stack.push(newElement);
+        this.#stack.push(newElement);
     }
     peekToken() {
-        return this.tokenIndex < this.tokens.length ? this.tokens[this.tokenIndex] : null;
+        return this.#tokenIndex < this.#tokens.length ? this.#tokens[this.#tokenIndex] : null;
     }
     nextToken() {
-        return this.tokens[this.tokenIndex++];
+        return this.#tokens[this.#tokenIndex++];
     }
     document() {
-        return this.documentInternal;
+        return this.#documentInternal;
     }
 }
 const SelfClosingTags = new Set([

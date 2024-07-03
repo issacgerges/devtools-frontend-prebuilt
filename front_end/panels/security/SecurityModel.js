@@ -5,32 +5,32 @@ import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 const UIStrings = {
     /**
-    *@description Text in Security Panel of the Security panel
-    */
+     *@description Text in Security Panel of the Security panel
+     */
     theSecurityOfThisPageIsUnknown: 'The security of this page is unknown.',
     /**
-    *@description Text in Security Panel of the Security panel
-    */
+     *@description Text in Security Panel of the Security panel
+     */
     thisPageIsNotSecure: 'This page is not secure.',
     /**
-    *@description Text in Security Panel of the Security panel
-    */
+     *@description Text in Security Panel of the Security panel
+     */
     thisPageIsSecureValidHttps: 'This page is secure (valid HTTPS).',
     /**
-    *@description Text in Security Panel of the Security panel
-    */
+     *@description Text in Security Panel of the Security panel
+     */
     thisPageIsNotSecureBrokenHttps: 'This page is not secure (broken HTTPS).',
     /**
-    *@description Description of an SSL cipher that contains a separate (bulk) cipher and MAC.
-    *@example {AES_256_CBC} PH1
-    *@example {HMAC-SHA1} PH2
-    */
+     *@description Description of an SSL cipher that contains a separate (bulk) cipher and MAC.
+     *@example {AES_256_CBC} PH1
+     *@example {HMAC-SHA1} PH2
+     */
     cipherWithMAC: '{PH1} with {PH2}',
     /**
-    *@description Description of an SSL Key and its Key Exchange Group.
-    *@example {ECDHE_RSA} PH1
-    *@example {X25519} PH2
-    */
+     *@description Description of an SSL Key and its Key Exchange Group.
+     *@example {ECDHE_RSA} PH1
+     *@example {X25519} PH2
+     */
     keyExchangeWithGroup: '{PH1} with {PH2}',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/security/SecurityModel.ts', UIStrings);
@@ -44,53 +44,37 @@ export class SecurityModel extends SDK.SDKModel.SDKModel {
         this.dispatcher = new SecurityDispatcher(this);
         this.securityAgent = target.securityAgent();
         target.registerSecurityDispatcher(this.dispatcher);
-        this.securityAgent.invoke_enable();
+        void this.securityAgent.invoke_enable();
     }
     resourceTreeModel() {
-        return /** @type {!SDK.ResourceTreeModel.ResourceTreeModel} */ this.target().model(SDK.ResourceTreeModel.ResourceTreeModel);
+        return this.target().model(SDK.ResourceTreeModel.ResourceTreeModel);
     }
     networkManager() {
-        return /** @type {!SDK.NetworkManager.NetworkManager} */ this.target().model(SDK.NetworkManager.NetworkManager);
-    }
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    static SecurityStateComparator(a, b) {
-        const securityStateMap = getOrCreateSecurityStateOrdinalMap();
-        const aScore = a && securityStateMap.get(a) || 0;
-        const bScore = b && securityStateMap.get(b) || 0;
-        return aScore - bScore;
+        return this.target().model(SDK.NetworkManager.NetworkManager);
     }
 }
-let securityStateToOrdinal = null;
-const getOrCreateSecurityStateOrdinalMap = () => {
-    if (!securityStateToOrdinal) {
-        securityStateToOrdinal = new Map();
-        const ordering = [
-            "info" /* Info */,
-            "insecure-broken" /* InsecureBroken */,
-            "insecure" /* Insecure */,
-            "neutral" /* Neutral */,
-            "secure" /* Secure */,
-            "unknown" /* Unknown */,
-        ];
-        for (let i = 0; i < ordering.length; i++) {
-            securityStateToOrdinal.set(ordering[i], i + 1);
-        }
-    }
-    return securityStateToOrdinal;
-};
-SDK.SDKModel.SDKModel.register(SecurityModel, { capabilities: SDK.Target.Capability.Security, autostart: false });
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
+export function securityStateCompare(a, b) {
+    const SECURITY_STATE_ORDER = [
+        "info" /* Protocol.Security.SecurityState.Info */,
+        "insecure-broken" /* Protocol.Security.SecurityState.InsecureBroken */,
+        "insecure" /* Protocol.Security.SecurityState.Insecure */,
+        "neutral" /* Protocol.Security.SecurityState.Neutral */,
+        "secure" /* Protocol.Security.SecurityState.Secure */,
+        "unknown" /* Protocol.Security.SecurityState.Unknown */,
+    ];
+    return SECURITY_STATE_ORDER.indexOf(a) - SECURITY_STATE_ORDER.indexOf(b);
+}
+SDK.SDKModel.SDKModel.register(SecurityModel, { capabilities: 512 /* SDK.Target.Capability.Security */, autostart: false });
 export var Events;
 (function (Events) {
     Events["VisibleSecurityStateChanged"] = "VisibleSecurityStateChanged";
 })(Events || (Events = {}));
 export const SummaryMessages = {
-    ["unknown" /* Unknown */]: i18nLazyString(UIStrings.theSecurityOfThisPageIsUnknown),
-    ["insecure" /* Insecure */]: i18nLazyString(UIStrings.thisPageIsNotSecure),
-    ["neutral" /* Neutral */]: i18nLazyString(UIStrings.thisPageIsNotSecure),
-    ["secure" /* Secure */]: i18nLazyString(UIStrings.thisPageIsSecureValidHttps),
-    ["insecure-broken" /* InsecureBroken */]: i18nLazyString(UIStrings.thisPageIsNotSecureBrokenHttps),
+    ["unknown" /* Protocol.Security.SecurityState.Unknown */]: i18nLazyString(UIStrings.theSecurityOfThisPageIsUnknown),
+    ["insecure" /* Protocol.Security.SecurityState.Insecure */]: i18nLazyString(UIStrings.thisPageIsNotSecure),
+    ["neutral" /* Protocol.Security.SecurityState.Neutral */]: i18nLazyString(UIStrings.thisPageIsNotSecure),
+    ["secure" /* Protocol.Security.SecurityState.Secure */]: i18nLazyString(UIStrings.thisPageIsSecureValidHttps),
+    ["insecure-broken" /* Protocol.Security.SecurityState.InsecureBroken */]: i18nLazyString(UIStrings.thisPageIsNotSecureBrokenHttps),
 };
 export class PageVisibleSecurityState {
     securityState;
@@ -176,7 +160,7 @@ export class SecurityStyleExplanation {
     certificate;
     mixedContentType;
     recommendations;
-    constructor(securityState, title, summary, description, certificate = [], mixedContentType = "none" /* None */, recommendations = []) {
+    constructor(securityState, title, summary, description, certificate = [], mixedContentType = "none" /* Protocol.Security.MixedContentType.None */, recommendations = []) {
         this.securityState = securityState;
         this.title = title;
         this.summary = summary;

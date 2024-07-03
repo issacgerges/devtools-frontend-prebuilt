@@ -1,7 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import * as FrontendHelpers from '../../../../../test/unittests/front_end/helpers/EnvironmentHelpers.js';
+import * as FrontendHelpers from '../../../../testing/EnvironmentHelpers.js';
 import * as ComponentHelpers from '../../helpers/helpers.js';
 import * as TreeOutline from '../../tree_outline/tree_outline.js';
 import { belgraveHouse, officesAndProductsData } from './sample-data.js';
@@ -25,9 +25,9 @@ component.addEventListener('treenodemouseout', (event) => {
 });
 document.getElementById('container')?.appendChild(component);
 document.getElementById('recursively-expand')?.addEventListener('click', () => {
-    component.expandRecursively();
+    void component.expandRecursively();
 });
 document.getElementById('expand-to-belgrave-house')?.addEventListener('click', () => {
-    component.expandToAndSelectTreeNode(belgraveHouse);
+    void component.expandToAndSelectTreeNode(belgraveHouse);
 });
 //# sourceMappingURL=basic.js.map

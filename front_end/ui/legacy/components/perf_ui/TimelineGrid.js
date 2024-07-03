@@ -30,9 +30,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-import * as Host from '../../../../core/host/host.js';
-import * as UI from '../../legacy.js';
 import * as ThemeSupport from '../../theme_support/theme_support.js';
+import { DEFAULT_FONT_SIZE, getFontFamilyForCanvas } from './Font.js';
+import timelineGridStyles from './timelineGrid.css.legacy.js';
 const labelMap = new Map();
 export class TimelineGrid {
     element;
@@ -42,7 +42,7 @@ export class TimelineGrid {
     dividersLabelBarElementInternal;
     constructor() {
         this.element = document.createElement('div');
-        UI.Utils.appendStyle(this.element, 'ui/legacy/components/perf_ui/timelineGrid.css');
+        ThemeSupport.ThemeSupport.instance().appendStyle(this.element, timelineGridStyles);
         this.dividersElementInternal = this.element.createChild('div', 'resources-dividers');
         this.gridHeaderElement = document.createElement('div');
         this.gridHeaderElement.classList.add('timeline-grid-header');
@@ -51,7 +51,7 @@ export class TimelineGrid {
         this.element.appendChild(this.gridHeaderElement);
     }
     static calculateGridOffsets(calculator, freeZoneAtLeft) {
-        /** @const */ const minGridSlicePx = 64; // minimal distance between grid lines.
+        const minGridSlicePx = 64; // minimal distance between grid lines.
         const clientWidth = calculator.computePosition(calculator.maximumBoundary());
         let dividersCount = clientWidth / minGridSlicePx;
         let gridSliceTime = calculator.boundarySpan() / dividersCount;
@@ -80,11 +80,15 @@ export class TimelineGrid {
         }
         const offsets = [];
         for (let i = 0; i < dividersCount; ++i) {
-            const time = firstDividerTime + gridSliceTime * i;
-            if (calculator.computePosition(time) < (freeZoneAtLeft || 0)) {
+            // The grid slice time could be small like 0.2. If we multiply this we
+            // open ourselves to floating point rounding errors. To avoid these, we
+            // multiply the number by 100, and i, and then divide it by 100 again.
+            const time = firstDividerTime + (gridSliceTime * 100 * i) / 100;
+            const positionFromTime = calculator.computePosition(time);
+            if (positionFromTime < (freeZoneAtLeft || 0)) {
                 continue;
             }
-            offsets.push({ position: Math.floor(calculator.computePosition(time)), time: time });
+            offsets.push({ position: Math.floor(positionFromTime), time: time });
         }
         return { offsets: offsets, precision: Math.max(0, -Math.floor(Math.log(gridSliceTime * 1.01) / Math.LN10)) };
     }
@@ -92,7 +96,7 @@ export class TimelineGrid {
         context.save();
         context.scale(window.devicePixelRatio, window.devicePixelRatio);
         const height = Math.floor(context.canvas.height / window.devicePixelRatio);
-        context.strokeStyle = getComputedStyle(document.body).getPropertyValue('--divider-line');
+        context.strokeStyle = getComputedStyle(document.body).getPropertyValue('--app-color-strokestyle');
         context.lineWidth = 1;
         context.translate(0.5, 0.5);
         context.beginPath();
@@ -108,12 +112,11 @@ export class TimelineGrid {
         context.scale(window.devicePixelRatio, window.devicePixelRatio);
         const width = Math.ceil(context.canvas.width / window.devicePixelRatio);
         context.beginPath();
-        context.fillStyle = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(255, 255, 255, 0.5)', ThemeSupport.ThemeSupport.ColorUsage.Background);
+        context.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-opacity-50');
         context.fillRect(0, 0, width, headerHeight);
-        context.fillStyle =
-            ThemeSupport.ThemeSupport.instance().patchColorText('#333', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        context.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-on-surface');
         context.textBaseline = 'hanging';
-        context.font = '11px ' + Host.Platform.fontFamily();
+        context.font = `${DEFAULT_FONT_SIZE} ${getFontFamilyForCanvas()}`;
         const paddingRight = 4;
         for (const offsetInfo of dividersData.offsets) {
             const text = formatTimeFunction(offsetInfo.time);

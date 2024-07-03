@@ -4,8 +4,11 @@
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import * as Coordinator from '../../../components/render_coordinator/render_coordinator.js';
 import * as UI from '../../legacy.js';
+import chartViewPortStyles from './chartViewport.css.legacy.js';
 import { MinimalTimeWindowMs } from './FlameChart.js';
+const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
 export class ChartViewport extends UI.Widget.VBox {
     delegate;
     viewportElement;
@@ -31,16 +34,15 @@ export class ChartViewport extends UI.Widget.VBox {
     targetLeftTime;
     targetRightTime;
     selectionOffsetShiftX;
-    selectionOffsetShiftY;
     selectionStartX;
     lastMouseOffsetX;
     minimumBoundary;
     totalTime;
-    updateTimerId;
+    isUpdateScheduled;
     cancelWindowTimesAnimation;
     constructor(delegate) {
         super();
-        this.registerRequiredCSS('ui/legacy/components/perf_ui/chartViewport.css');
+        this.registerRequiredCSS(chartViewPortStyles);
         this.delegate = delegate;
         this.viewportElement = this.contentElement.createChild('div', 'fill');
         this.viewportElement.addEventListener('mousemove', this.updateCursorPosition.bind(this), false);
@@ -107,6 +109,7 @@ export class ChartViewport extends UI.Widget.VBox {
         this.totalHeight = 0;
         this.targetLeftTime = 0;
         this.targetRightTime = 0;
+        this.isUpdateScheduled = false;
         this.updateContentElementSize();
     }
     updateContentElementSize() {
@@ -151,7 +154,7 @@ export class ChartViewport extends UI.Widget.VBox {
     onMouseWheel(e) {
         const wheelEvent = e;
         const doZoomInstead = wheelEvent.shiftKey !==
-            (Common.Settings.Settings.instance().moduleSetting('flamechartMouseWheelAction').get() === 'zoom');
+            (Common.Settings.Settings.instance().moduleSetting('flamechart-mouse-wheel-action').get() === 'zoom');
         const panVertically = !doZoomInstead && (wheelEvent.deltaY || Math.abs(wheelEvent.deltaX) === 53);
         const panHorizontally = doZoomInstead && Math.abs(wheelEvent.deltaX) > Math.abs(wheelEvent.deltaY);
         if (panVertically) {
@@ -194,7 +197,6 @@ export class ChartViewport extends UI.Widget.VBox {
         }
         this.isDraggingInternal = true;
         this.selectionOffsetShiftX = event.offsetX - event.pageX;
-        this.selectionOffsetShiftY = event.offsetY - event.pageY;
         this.selectionStartX = event.offsetX;
         const style = this.selectionOverlay.style;
         style.left = this.selectionStartX + 'px';
@@ -258,9 +260,12 @@ export class ChartViewport extends UI.Widget.VBox {
     }
     updateCursorPosition(e) {
         const mouseEvent = e;
-        this.showCursor(mouseEvent.shiftKey);
-        this.cursorElement.style.left = mouseEvent.offsetX + 'px';
         this.lastMouseOffsetX = mouseEvent.offsetX;
+        const shouldShowCursor = mouseEvent.shiftKey && !mouseEvent.metaKey;
+        this.showCursor(shouldShowCursor);
+        if (shouldShowCursor) {
+            this.cursorElement.style.left = mouseEvent.offsetX + 'px';
+        }
     }
     pixelToTime(x) {
         return this.pixelToTimeOffset(x) + this.visibleLeftTime;
@@ -313,7 +318,10 @@ export class ChartViewport extends UI.Widget.VBox {
     }
     handleZoomGesture(zoom) {
         const bounds = { left: this.targetLeftTime, right: this.targetRightTime };
-        const cursorTime = this.pixelToTime(this.lastMouseOffsetX);
+        // If the user has not moved their mouse over the panel (unlikely but
+        // possible!), the offsetX will be undefined. In that case, let's just use
+        // the minimum time / pixel 0 as their mouse point.
+        const cursorTime = this.pixelToTime(this.lastMouseOffsetX || 0);
         bounds.left += (bounds.left - cursorTime) * zoom;
         bounds.right += (bounds.right - cursorTime) * zoom;
         this.requestWindowTimes(bounds, /* animate */ true);
@@ -341,11 +349,12 @@ export class ChartViewport extends UI.Widget.VBox {
         this.delegate.windowChanged(bounds.left, bounds.right, animate);
     }
     scheduleUpdate() {
-        if (this.updateTimerId || this.cancelWindowTimesAnimation) {
+        if (this.cancelWindowTimesAnimation || this.isUpdateScheduled) {
             return;
         }
-        this.updateTimerId = this.element.window().requestAnimationFrame(() => {
-            this.updateTimerId = 0;
+        this.isUpdateScheduled = true;
+        void coordinator.write(() => {
+            this.isUpdateScheduled = false;
             this.update();
         });
     }

@@ -4,28 +4,29 @@
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 const UIStrings = {
     /**
-    *@description Text in Indexed DBViews of the Application panel
-    */
+     *@description Text in Indexed DBViews of the Application panel
+     */
     version: 'Version',
     /**
-    *@description Table heading for Service Workers update information. Update is a noun.
-    */
+     *@description Table heading for Service Workers update information. Update is a noun.
+     */
     updateActivity: 'Update Activity',
     /**
-    *@description Title for the timeline tab.
-    */
+     *@description Title for the timeline tab.
+     */
     timeline: 'Timeline',
     /**
-    *@description Text in Service Workers Update Life Cycle
-    *@example {2} PH1
-    */
+     *@description Text in Service Workers Update Life Cycle
+     *@example {2} PH1
+     */
     startTimeS: 'Start time: {PH1}',
     /**
-    *@description Text for end time of an event
-    *@example {2} PH1
-    */
+     *@description Text for end time of an event
+     *@example {2} PH1
+     */
     endTimeS: 'End time: {PH1}',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/application/ServiceWorkerUpdateCycleView.ts', UIStrings);
@@ -52,17 +53,17 @@ export class ServiceWorkerUpdateCycleView {
          * Add ranges representing Install, Wait or Activate of a sw version represented by id.
          */
         function addNormalizedRanges(ranges, id, startInstallTime, endInstallTime, startActivateTime, endActivateTime, status) {
-            addRange(ranges, { id, phase: "Install" /* Install */, start: startInstallTime, end: endInstallTime });
-            if (status === "activating" /* Activating */ ||
-                status === "activated" /* Activated */ ||
-                status === "redundant" /* Redundant */) {
+            addRange(ranges, { id, phase: "Install" /* ServiceWorkerUpdateNames.Install */, start: startInstallTime, end: endInstallTime });
+            if (status === "activating" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Activating */ ||
+                status === "activated" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Activated */ ||
+                status === "redundant" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Redundant */) {
                 addRange(ranges, {
                     id,
-                    phase: "Wait" /* Wait */,
+                    phase: "Wait" /* ServiceWorkerUpdateNames.Wait */,
                     start: endInstallTime,
                     end: startActivateTime,
                 });
-                addRange(ranges, { id, phase: "Activate" /* Activate */, start: startActivateTime, end: endActivateTime });
+                addRange(ranges, { id, phase: "Activate" /* ServiceWorkerUpdateNames.Activate */, start: startActivateTime, end: endActivateTime });
             }
         }
         function rangesForVersion(version) {
@@ -72,42 +73,41 @@ export class ServiceWorkerUpdateCycleView {
             let endInstallTime = 0;
             let beginInstallTime = 0;
             const currentStatus = state.status;
-            if (currentStatus === "new" /* New */) {
+            if (currentStatus === "new" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.New */) {
                 return [];
             }
             while (state) {
                 // find the earliest timestamp of different stage on record.
-                if (state.status === "activated" /* Activated */) {
-                    endActivateTime = state.last_updated_timestamp;
+                if (state.status === "activated" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Activated */) {
+                    endActivateTime = state.lastUpdatedTimestamp;
                 }
-                else if (state.status === "activating" /* Activating */) {
+                else if (state.status === "activating" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Activating */) {
                     if (endActivateTime === 0) {
-                        endActivateTime = state.last_updated_timestamp;
+                        endActivateTime = state.lastUpdatedTimestamp;
                     }
-                    beginActivateTime = state.last_updated_timestamp;
+                    beginActivateTime = state.lastUpdatedTimestamp;
                 }
-                else if (state.status === "installed" /* Installed */) {
-                    endInstallTime = state.last_updated_timestamp;
+                else if (state.status === "installed" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Installed */) {
+                    endInstallTime = state.lastUpdatedTimestamp;
                 }
-                else if (state.status === "installing" /* Installing */) {
+                else if (state.status === "installing" /* Protocol.ServiceWorker.ServiceWorkerVersionStatus.Installing */) {
                     if (endInstallTime === 0) {
-                        endInstallTime = state.last_updated_timestamp;
+                        endInstallTime = state.lastUpdatedTimestamp;
                     }
-                    beginInstallTime = state.last_updated_timestamp;
+                    beginInstallTime = state.lastUpdatedTimestamp;
                 }
                 state = state.previousState;
             }
-            /** @type {Array <ServiceWorkerUpdateRange>} */
             const ranges = [];
             addNormalizedRanges(ranges, version.id, beginInstallTime, endInstallTime, beginActivateTime, endActivateTime, currentStatus);
             return ranges;
         }
         const versions = this.registration.versionsByMode();
         const modes = [
-            SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Active,
-            SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Waiting,
-            SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Installing,
-            SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Redundant,
+            "active" /* SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Active */,
+            "waiting" /* SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Waiting */,
+            "installing" /* SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Installing */,
+            "redundant" /* SDK.ServiceWorkerManager.ServiceWorkerVersion.Modes.Redundant */,
         ];
         for (const mode of modes) {
             const version = versions.get(mode);
@@ -120,6 +120,7 @@ export class ServiceWorkerUpdateCycleView {
     }
     createTimingTable() {
         this.tableElement.classList.add('service-worker-update-timing-table');
+        this.tableElement.setAttribute('jslog', `${VisualLogging.tree('update-timing-table')}`);
         const timeRanges = this.calculateServiceWorkerUpdateRanges();
         this.updateTimingTable(timeRanges);
     }
@@ -142,7 +143,6 @@ export class ServiceWorkerUpdateCycleView {
         this.selectedRowIndex = -1;
         this.removeRows();
         this.createTimingTableHead();
-        /** @type {!Array<ServiceWorkerUpdateRange>} */
         const timeRangeArray = timeRanges;
         if (timeRangeArray.length === 0) {
             return;
@@ -157,6 +157,10 @@ export class ServiceWorkerUpdateCycleView {
             const left = (scale * (range.start - startTime));
             const right = (scale * (endTime - range.end));
             const tr = this.tableElement.createChild('tr', 'service-worker-update-timeline');
+            tr.setAttribute('jslog', `${VisualLogging.treeItem('update-timeline').track({
+                click: true,
+                keydown: 'ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Enter|Space',
+            })}`);
             this.rows.push(tr);
             const timingBarVersionElement = tr.createChild('td');
             UI.UIUtils.createTextChild(timingBarVersionElement, '#' + range.id);
@@ -166,6 +170,7 @@ export class ServiceWorkerUpdateCycleView {
             timingBarVersionElement.addEventListener('focus', (event) => {
                 this.onFocus(event);
             });
+            timingBarVersionElement.setAttribute('jslog', `${VisualLogging.expand('timing-info').track({ click: true })}`);
             UI.ARIAUtils.setChecked(timingBarVersionElement, false);
             const timingBarTitleElement = tr.createChild('td');
             UI.UIUtils.createTextChild(timingBarTitleElement, phaseName);

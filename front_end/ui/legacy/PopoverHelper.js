@@ -27,8 +27,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import * as VisualLogging from '../visual_logging/visual_logging.js';
 import { GlassPane } from './GlassPane.js';
+import popoverStyles from './popover.css.legacy.js';
 export class PopoverHelper {
+    static createPopover = (jslogContext) => {
+        const popover = new GlassPane(`${VisualLogging.popover(jslogContext).parent('mapped')}`);
+        popover.registerRequiredCSS(popoverStyles);
+        popover.setSizeBehavior("MeasureContent" /* SizeBehavior.MeasureContent */);
+        popover.setMarginBehavior("Arrow" /* MarginBehavior.Arrow */);
+        return popover;
+    };
     disableOnClick;
     hasPadding;
     getRequest;
@@ -42,10 +51,12 @@ export class PopoverHelper {
     boundMouseDown;
     boundMouseMove;
     boundMouseOut;
-    constructor(container, getRequest) {
+    jslogContext;
+    constructor(container, getRequest, jslogContext) {
         this.disableOnClick = false;
         this.hasPadding = false;
         this.getRequest = getRequest;
+        this.jslogContext = jslogContext;
         this.scheduledRequest = null;
         this.hidePopoverCallback = null;
         this.container = container;
@@ -89,13 +100,17 @@ export class PopoverHelper {
     }
     mouseMove(ev) {
         const event = ev;
-        // Pretend that nothing has happened.
         if (this.eventInScheduledContent(event)) {
+            // Reschedule showing popover since mouse moved and
+            // we only want to show the popover when the mouse is
+            // standing still on the container for some amount of time.
+            this.stopShowPopoverTimer();
+            this.startShowPopoverTimer(event, this.isPopoverVisible() ? this.showTimeout * 0.6 : this.showTimeout);
             return;
         }
         this.startHidePopoverTimer(this.hideTimeout);
         this.stopShowPopoverTimer();
-        if (event.which && this.disableOnClick) {
+        if (event.buttons && this.disableOnClick) {
             return;
         }
         this.startShowPopoverTimer(event, this.isPopoverVisible() ? this.showTimeout * 0.6 : this.showTimeout);
@@ -127,7 +142,7 @@ export class PopoverHelper {
             return;
         }
         this.hidePopoverTimer = window.setTimeout(() => {
-            this.hidePopover();
+            this.hidePopoverInternal();
             this.hidePopoverTimer = null;
         }, timeout);
     }
@@ -166,15 +181,12 @@ export class PopoverHelper {
         this.hidePopoverCallback = null;
     }
     showPopover(document) {
-        const popover = new GlassPane();
-        popover.registerRequiredCSS('ui/legacy/popover.css');
-        popover.setSizeBehavior("MeasureContent" /* MeasureContent */);
-        popover.setMarginBehavior("Arrow" /* Arrow */);
+        const popover = PopoverHelper.createPopover(this.jslogContext);
         const request = this.scheduledRequest;
         if (!request) {
             return;
         }
-        request.show.call(null, popover).then(success => {
+        void request.show.call(null, popover).then(success => {
             if (!success) {
                 return;
             }
@@ -186,10 +198,10 @@ export class PopoverHelper {
             }
             // This should not happen, but we hide previous popover to be on the safe side.
             if (popoverHelperInstance) {
-                console.error('One popover is already visible');
                 popoverHelperInstance.hidePopover();
             }
             popoverHelperInstance = this;
+            VisualLogging.setMappedParent(popover.contentElement, this.container);
             popover.contentElement.classList.toggle('has-padding', this.hasPadding);
             popover.contentElement.addEventListener('mousemove', this.popoverMouseMove.bind(this), true);
             popover.contentElement.addEventListener('mouseout', this.popoverMouseOut.bind(this, popover), true);

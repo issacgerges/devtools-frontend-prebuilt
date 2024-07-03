@@ -7,16 +7,16 @@ import * as SDK from '../../core/sdk/sdk.js';
 import { ThrottlingPresets } from './ThrottlingPresets.js';
 const UIStrings = {
     /**
-    *@description Text to indicate something is not enabled
-    */
+     *@description Text to indicate something is not enabled
+     */
     disabled: 'Disabled',
     /**
-    *@description Title for a group of configuration options
-    */
+     *@description Title for a group of configuration options
+     */
     presets: 'Presets',
     /**
-    *@description Text in Network Throttling Selector of the Network panel
-    */
+     *@description Text in Network Throttling Selector of the Network panel
+     */
     custom: 'Custom',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/NetworkThrottlingSelector.ts', UIStrings);
@@ -31,13 +31,13 @@ export class NetworkThrottlingSelector {
         this.selectCallback = selectCallback;
         this.customNetworkConditionsSetting = customNetworkConditionsSetting;
         this.customNetworkConditionsSetting.addChangeListener(this.populateOptions, this);
-        SDK.NetworkManager.MultitargetNetworkManager.instance().addEventListener(SDK.NetworkManager.MultitargetNetworkManager.Events.ConditionsChanged, () => {
+        SDK.NetworkManager.MultitargetNetworkManager.instance().addEventListener("ConditionsChanged" /* SDK.NetworkManager.MultitargetNetworkManager.Events.ConditionsChanged */, () => {
             this.networkConditionsChanged();
         }, this);
         this.populateOptions();
     }
     revealAndUpdate() {
-        Common.Revealer.reveal(this.customNetworkConditionsSetting);
+        void Common.Revealer.reveal(this.customNetworkConditionsSetting);
         this.networkConditionsChanged();
     }
     optionSelected(conditions) {

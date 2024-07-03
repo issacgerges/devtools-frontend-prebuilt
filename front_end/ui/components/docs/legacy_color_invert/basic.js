@@ -1,9 +1,9 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import * as FrontendHelpers from '../../../../../test/unittests/front_end/helpers/EnvironmentHelpers.js';
 import * as Common from '../../../../core/common/common.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import * as FrontendHelpers from '../../../../testing/EnvironmentHelpers.js';
 import * as ComponentHelpers from '../../helpers/helpers.js';
 await ComponentHelpers.ComponentServerSetup.setup();
 await FrontendHelpers.initializeGlobalVars();
@@ -44,18 +44,17 @@ function patchHSLA(hsla, colorUsage) {
     hsla[3] = Platform.NumberUtilities.clamp(alpha, 0, 1);
 }
 function patchColor(colorAsText, colorUsage) {
-    const color = Common.Color.Color.parse(colorAsText);
+    const color = Common.Color.parse(colorAsText)?.as("hsl" /* Common.Color.Format.HSL */);
     if (!color) {
         return colorAsText;
     }
-    const hsla = color.hsla();
+    const hsla = [color.h, color.s, color.l, color.alpha ?? 1];
     patchHSLA(hsla, colorUsage);
-    const rgba = [];
-    Common.Color.Color.hsl2rgb(hsla, rgba);
-    const outColor = new Common.Color.Color(rgba, color.format());
-    let outText = outColor.asString(null);
+    const rgba = Common.Color.hsl2rgb(hsla);
+    const outColor = new Common.Color.Legacy(rgba, "rgba" /* Common.Color.Format.RGBA */);
+    let outText = outColor.asString();
     if (!outText) {
-        outText = outColor.asString(outColor.hasAlpha() ? Common.Color.Format.RGBA : Common.Color.Format.RGB);
+        outText = outColor.asString(outColor.hasAlpha() ? "rgba" /* Common.Color.Format.RGBA */ : "rgb" /* Common.Color.Format.RGB */);
     }
     return outText || colorAsText;
 }

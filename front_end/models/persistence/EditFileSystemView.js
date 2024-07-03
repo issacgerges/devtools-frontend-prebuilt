@@ -34,35 +34,35 @@ import editFileSystemViewStyles from './editFileSystemView.css.js';
 import { Events, IsolatedFileSystemManager } from './IsolatedFileSystemManager.js';
 const UIStrings = {
     /**
-    *@description Text in Edit File System View of the Workspace settings in Settings
-    */
+     *@description Text in Edit File System View of the Workspace settings in Settings
+     */
     excludedFolders: 'Excluded folders',
     /**
-    *@description Text to add something
-    */
+     *@description Text to add something
+     */
     add: 'Add',
     /**
-    * @description Placeholder text for an area of the UI that shows which folders have been excluded
-    * from being show in DevTools. When the user has not yet chosen any folders to exclude, this text
-    * is shown.
-    */
+     * @description Placeholder text for an area of the UI that shows which folders have been excluded
+     * from being show in DevTools. When the user has not yet chosen any folders to exclude, this text
+     * is shown.
+     */
     none: 'None',
     /**
-    *@description Text in Edit File System View of the Workspace settings in Settings
-    *@example {file/path/} PH1
-    */
+     *@description Text in Edit File System View of the Workspace settings in Settings
+     *@example {file/path/} PH1
+     */
     sViaDevtools: '{PH1} (via .devtools)',
     /**
-    *@description Text in Edit File System View of the Workspace settings in Settings
-    */
+     *@description Text in Edit File System View of the Workspace settings in Settings
+     */
     folderPath: 'Folder path',
     /**
-    *@description Error message when a file system path is an empty string.
-    */
+     *@description Error message when a file system path is an empty string.
+     */
     enterAPath: 'Enter a path',
     /**
-    *@description Error message when a file system path is identical to an existing path.
-    */
+     *@description Error message when a file system path is identical to an existing path.
+     */
     enterAUniquePath: 'Enter a unique path',
 };
 const str_ = i18n.i18n.registerUIStrings('models/persistence/EditFileSystemView.ts', UIStrings);
@@ -85,7 +85,8 @@ export class EditFileSystemView extends UI.Widget.VBox {
         const excludedFoldersHeader = this.contentElement.createChild('div', 'file-system-header');
         excludedFoldersHeader.createChild('div', 'file-system-header-text').textContent =
             i18nString(UIStrings.excludedFolders);
-        excludedFoldersHeader.appendChild(UI.UIUtils.createTextButton(i18nString(UIStrings.add), this.addExcludedFolderButtonClicked.bind(this), 'add-button'));
+        const addButton = UI.UIUtils.createTextButton(i18nString(UIStrings.add), this.addExcludedFolderButtonClicked.bind(this), { className: 'add-button', jslogContext: 'settings.add-excluded-folder' });
+        excludedFoldersHeader.appendChild(addButton);
         this.excludedFoldersList = new UI.ListWidget.ListWidget(this);
         this.excludedFoldersList.element.classList.add('file-system-list');
         const excludedFoldersPlaceholder = document.createElement('div');
@@ -132,13 +133,13 @@ export class EditFileSystemView extends UI.Widget.VBox {
         if (!isNew) {
             this.getFileSystem().removeExcludedFolder(item);
         }
-        this.getFileSystem().addExcludedFolder(this.normalizePrefix(editor.control('pathPrefix').value));
+        this.getFileSystem().addExcludedFolder(this.normalizePrefix(editor.control('path-prefix').value));
         this.muteUpdate = false;
         this.update();
     }
     beginEdit(item) {
         const editor = this.createExcludedFolderEditor();
-        editor.control('pathPrefix').value = item;
+        editor.control('path-prefix').value = item;
         return editor;
     }
     createExcludedFolderEditor() {
@@ -152,7 +153,7 @@ export class EditFileSystemView extends UI.Widget.VBox {
         titles.createChild('div', 'file-system-value').textContent = i18nString(UIStrings.folderPath);
         const fields = content.createChild('div', 'file-system-edit-row');
         fields.createChild('div', 'file-system-value')
-            .appendChild(editor.createInput('pathPrefix', 'text', '/path/to/folder/', pathPrefixValidator.bind(this)));
+            .appendChild(editor.createInput('path-prefix', 'text', '/path/to/folder/', pathPrefixValidator.bind(this)));
         return editor;
         function pathPrefixValidator(_item, index, input) {
             const prefix = this.normalizePrefix(input.value.trim());

@@ -31,7 +31,7 @@ import { NodeURL } from './NodeURL.js';
 export const DevToolsStubErrorCode = -32015;
 // TODO(dgozman): we are not reporting generic errors in tests, but we should
 // instead report them and just have some expected errors in test expectations.
-const GenericError = -32000;
+const GenericErrorCode = -32000;
 const ConnectionClosedErrorCode = -32001;
 export const splitQualifiedName = (string) => {
     const [domain, eventName] = string.split('.');
@@ -44,6 +44,8 @@ export class InspectorBackend {
     agentPrototypes = new Map();
     #initialized = false;
     #eventParameterNamesForDomain = new Map();
+    typeMap = new Map();
+    enumMap = new Map();
     getOrCreateEventParameterNamesForDomain(domain) {
         let map = this.#eventParameterNamesForDomain.get(domain);
         if (!map) {
@@ -55,7 +57,7 @@ export class InspectorBackend {
     getOrCreateEventParameterNamesForDomainForTesting(domain) {
         return this.getOrCreateEventParameterNamesForDomain(domain);
     }
-    getEventParamterNames() {
+    getEventParameterNames() {
         return this.#eventParameterNamesForDomain;
     }
     static reportProtocolError(error, messageObject) {
@@ -70,25 +72,30 @@ export class InspectorBackend {
     agentPrototype(domain) {
         let prototype = this.agentPrototypes.get(domain);
         if (!prototype) {
-            prototype = new _AgentPrototype(domain);
+            prototype = new AgentPrototype(domain);
             this.agentPrototypes.set(domain, prototype);
         }
         return prototype;
     }
-    registerCommand(method, parameters, replyArgs) {
+    registerCommand(method, parameters, replyArgs, description) {
         const [domain, command] = splitQualifiedName(method);
-        this.agentPrototype(domain).registerCommand(command, parameters, replyArgs);
+        this.agentPrototype(domain).registerCommand(command, parameters, replyArgs, description);
         this.#initialized = true;
     }
     registerEnum(type, values) {
         const [domain, name] = splitQualifiedName(type);
-        // @ts-ignore Protocol global namespace pollution
-        if (!Protocol[domain]) {
-            // @ts-ignore Protocol global namespace pollution
-            Protocol[domain] = {};
+        // @ts-ignore globalThis global namespace pollution
+        if (!globalThis.Protocol[domain]) {
+            // @ts-ignore globalThis global namespace pollution
+            globalThis.Protocol[domain] = {};
         }
-        // @ts-ignore Protocol global namespace pollution
-        Protocol[domain][name] = values;
+        // @ts-ignore globalThis global namespace pollution
+        globalThis.Protocol[domain][name] = values;
+        this.enumMap.set(type, values);
+        this.#initialized = true;
+    }
+    registerType(method, parameters) {
+        this.typeMap.set(method, parameters);
         this.#initialized = true;
     }
     registerEvent(eventName, params) {
@@ -239,9 +246,9 @@ export class SessionRouter {
         session.callbacks.set(messageId, { callback, method });
         this.#connectionInternal.sendRawMessage(JSON.stringify(messageObject));
     }
-    sendRawMessageForTesting(method, params, callback) {
+    sendRawMessageForTesting(method, params, callback, sessionId = '') {
         const domain = method.split('.')[0];
-        this.sendMessage('', domain, method, params, callback || (() => { }));
+        this.sendMessage(sessionId, domain, method, params, callback || (() => { }));
     }
     onMessage(message) {
         if (test.dumpProtocol) {
@@ -284,6 +291,10 @@ export class SessionRouter {
             const callback = session.callbacks.get(messageObject.id);
             session.callbacks.delete(messageObject.id);
             if (!callback) {
+                if (messageObject.error?.code === ConnectionClosedErrorCode) {
+                    // Ignore the errors that are sent as responses after the session closes.
+                    return;
+                }
                 if (!suppressUnknownMessageErrors) {
                     InspectorBackend.reportProtocolError('Protocol Error: the message with wrong id', messageObject);
                 }
@@ -314,7 +325,7 @@ export class SessionRouter {
             this.#pendingScripts.push(script);
         }
         // Execute all promises.
-        setTimeout(() => {
+        window.setTimeout(() => {
             if (!this.hasOutstandingNonLongPollingRequests()) {
                 this.executeAfterPendingDispatches();
             }
@@ -338,7 +349,7 @@ export class SessionRouter {
             code: ConnectionClosedErrorCode,
             data: null,
         };
-        setTimeout(() => callback(error, null), 0);
+        window.setTimeout(() => callback(error, null), 0);
     }
     static dispatchUnregisterSessionError({ callback, method }) {
         const error = {
@@ -346,7 +357,7 @@ export class SessionRouter {
             code: ConnectionClosedErrorCode,
             data: null,
         };
-        setTimeout(() => callback(error, null), 0);
+        window.setTimeout(() => callback(error, null), 0);
     }
 }
 export class TargetBase {
@@ -378,7 +389,7 @@ export class TargetBase {
             agent.target = this;
             this.#agents.set(domain, agent);
         }
-        for (const [domain, eventParameterNames] of inspectorBackend.getEventParamterNames().entries()) {
+        for (const [domain, eventParameterNames] of inspectorBackend.getEventParameterNames().entries()) {
             this.#dispatchers.set(domain, new DispatcherManager(eventParameterNames));
         }
     }
@@ -428,6 +439,9 @@ export class TargetBase {
     auditsAgent() {
         return this.getAgent('Audits');
     }
+    autofillAgent() {
+        return this.getAgent('Autofill');
+    }
     browserAgent() {
         return this.getAgent('Browser');
     }
@@ -463,6 +477,12 @@ export class TargetBase {
     }
     emulationAgent() {
         return this.getAgent('Emulation');
+    }
+    eventBreakpointsAgent() {
+        return this.getAgent('EventBreakpoints');
+    }
+    fetchAgent() {
+        return this.getAgent('Fetch');
     }
     heapProfilerAgent() {
         return this.getAgent('HeapProfiler');
@@ -500,6 +520,9 @@ export class TargetBase {
     pageAgent() {
         return this.getAgent('Page');
     }
+    preloadAgent() {
+        return this.getAgent('Preload');
+    }
     profilerAgent() {
         return this.getAgent('Profiler');
     }
@@ -517,6 +540,9 @@ export class TargetBase {
     }
     storageAgent() {
         return this.getAgent('Storage');
+    }
+    systemInfo() {
+        return this.getAgent('SystemInfo');
     }
     targetAgent() {
         return this.getAgent('Target');
@@ -553,6 +579,12 @@ export class TargetBase {
         }
         manager.removeDomainDispatcher(dispatcher);
     }
+    registerAccessibilityDispatcher(dispatcher) {
+        this.registerDispatcher('Accessibility', dispatcher);
+    }
+    registerAutofillDispatcher(dispatcher) {
+        this.registerDispatcher('Autofill', dispatcher);
+    }
     registerAnimationDispatcher(dispatcher) {
         this.registerDispatcher('Animation', dispatcher);
     }
@@ -580,6 +612,9 @@ export class TargetBase {
     registerDOMStorageDispatcher(dispatcher) {
         this.registerDispatcher('DOMStorage', dispatcher);
     }
+    registerFetchDispatcher(dispatcher) {
+        this.registerDispatcher('Fetch', dispatcher);
+    }
     registerHeapProfilerDispatcher(dispatcher) {
         this.registerDispatcher('HeapProfiler', dispatcher);
     }
@@ -603,6 +638,9 @@ export class TargetBase {
     }
     registerPageDispatcher(dispatcher) {
         this.registerDispatcher('Page', dispatcher);
+    }
+    registerPreloadDispatcher(dispatcher) {
+        this.registerDispatcher('Preload', dispatcher);
     }
     registerProfilerDispatcher(dispatcher) {
         this.registerDispatcher('Profiler', dispatcher);
@@ -628,6 +666,9 @@ export class TargetBase {
     registerWebAudioDispatcher(dispatcher) {
         this.registerDispatcher('WebAudio', dispatcher);
     }
+    registerWebAuthnDispatcher(dispatcher) {
+        this.registerDispatcher('WebAuthn', dispatcher);
+    }
     getNeedsNodeJSPatching() {
         return this.needsNodeJSPatching;
     }
@@ -641,23 +682,25 @@ export class TargetBase {
  * The reasons this is done is so that on the prototypes we can install the implementations
  * of the invoke_enable, etc. methods that the front-end uses.
  */
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-class _AgentPrototype {
+class AgentPrototype {
     replyArgs;
+    description = '';
+    metadata;
     domain;
     target;
     constructor(domain) {
         this.replyArgs = {};
         this.domain = domain;
+        this.metadata = {};
     }
-    registerCommand(methodName, parameters, replyArgs) {
+    registerCommand(methodName, parameters, replyArgs, description) {
         const domainAndMethod = qualifyName(this.domain, methodName);
         function sendMessagePromise(...args) {
-            return _AgentPrototype.prototype.sendMessageToBackendPromise.call(this, domainAndMethod, parameters, args);
+            return AgentPrototype.prototype.sendMessageToBackendPromise.call(this, domainAndMethod, parameters, args);
         }
         // @ts-ignore Method code generation
         this[methodName] = sendMessagePromise;
+        this.metadata[domainAndMethod] = { parameters, description, replyArgs };
         function invoke(request = {}) {
             return this.invoke(domainAndMethod, request);
         }
@@ -681,7 +724,8 @@ class _AgentPrototype {
             if (optionalFlag && typeof value === 'undefined') {
                 continue;
             }
-            if (typeof value !== typeName) {
+            const expectedJSType = typeName === 'array' ? 'object' : typeName;
+            if (typeof value !== expectedJSType) {
                 errorCallback(`Protocol Error: Invalid type of argument '${paramName}' for method '${method}' call. ` +
                     `It must be '${typeName}' but it is '${typeof value}'.`);
                 return null;
@@ -710,7 +754,7 @@ class _AgentPrototype {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const callback = (error, result) => {
                 if (error) {
-                    if (!test.suppressRequestErrors && error.code !== DevToolsStubErrorCode && error.code !== GenericError &&
+                    if (!test.suppressRequestErrors && error.code !== DevToolsStubErrorCode && error.code !== GenericErrorCode &&
                         error.code !== ConnectionClosedErrorCode) {
                         console.error('Request ' + method + ' failed. ' + JSON.stringify(error));
                     }
@@ -733,7 +777,7 @@ class _AgentPrototype {
         return new Promise(fulfill => {
             const callback = (error, result) => {
                 if (error && !test.suppressRequestErrors && error.code !== DevToolsStubErrorCode &&
-                    error.code !== GenericError && error.code !== ConnectionClosedErrorCode) {
+                    error.code !== GenericErrorCode && error.code !== ConnectionClosedErrorCode) {
                     console.error('Request ' + method + ' failed. ' + JSON.stringify(error));
                 }
                 const errorMessage = error?.message;

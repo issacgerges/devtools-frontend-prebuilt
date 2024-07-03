@@ -1,8 +1,8 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+import * as TraceEngine from '../../models/trace/trace.js';
 import { TimelineJSProfileProcessor } from './TimelineJSProfile.js';
-import { RecordType, TimelineData, TimelineModelImpl } from './TimelineModel.js';
 export class Node {
     totalTime;
     selfTime;
@@ -30,6 +30,10 @@ export class Node {
     setHasChildren(_value) {
         throw 'Not implemented';
     }
+    /**
+     * Returns the direct descendants of this node.
+     * @returns a map with ordered <nodeId, Node> tuples.
+     */
     children() {
         throw 'Not implemented';
     }
@@ -66,6 +70,7 @@ export class TopDownNode extends Node {
         return this.childrenInternal || this.buildChildren();
     }
     buildChildren() {
+        // Tracks the ancestor path of this node, includes the current node.
         const path = [];
         for (let node = this; node.parent && !node.isGroupNode(); node = node.parent) {
             path.push(node);
@@ -81,13 +86,25 @@ export class TopDownNode extends Node {
         const startTime = root.startTime;
         const endTime = root.endTime;
         const instantEventCallback = root.doNotAggregate ? onInstantEvent : undefined;
-        const eventIdCallback = root.doNotAggregate ? undefined : _eventId;
+        const eventIdCallback = root.doNotAggregate ? undefined : generateEventID;
         const eventGroupIdCallback = root.getEventGroupIdCallback();
         let depth = 0;
+        // The amount of ancestors found to match this node's ancestors
+        // during the event tree walk.
         let matchedDepth = 0;
         let currentDirectChild = null;
-        TimelineModelImpl.forEachEvent(root.events, onStartEvent, onEndEvent, instantEventCallback, startTime, endTime, root.filter);
+        // Walk on the full event tree to find this node's children.
+        TraceEngine.Helpers.Trace.forEachEvent(root.events, {
+            onStartEvent,
+            onEndEvent,
+            onInstantEvent: instantEventCallback,
+            startTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(startTime),
+            endTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(endTime),
+            eventFilter: root.filter,
+            ignoreAsyncEvents: false,
+        });
         function onStartEvent(e) {
+            const { startTime: currentStartTime, endTime: currentEndTime } = TraceEngine.Legacy.timesForEventInMilliseconds(e);
             ++depth;
             if (depth > path.length + 2) {
                 return;
@@ -95,8 +112,8 @@ export class TopDownNode extends Node {
             if (!matchPath(e)) {
                 return;
             }
-            const actualEndTime = e.endTime !== undefined ? Math.min(e.endTime, endTime) : endTime;
-            const duration = actualEndTime - Math.max(startTime, e.startTime);
+            const actualEndTime = currentEndTime !== undefined ? Math.min(currentEndTime, endTime) : endTime;
+            const duration = actualEndTime - Math.max(startTime, currentStartTime);
             if (duration < 0) {
                 console.error('Negative event duration');
             }
@@ -109,6 +126,9 @@ export class TopDownNode extends Node {
             }
             --depth;
         }
+        /**
+         * Creates a child node.
+         */
         function processEvent(e, duration) {
             if (depth === path.length + 2) {
                 if (!currentDirectChild) {
@@ -140,14 +160,21 @@ export class TopDownNode extends Node {
             node.totalTime += duration;
             currentDirectChild = node;
         }
+        /**
+         * Checks if the path of ancestors of an event matches the path of
+         * ancestors of the current node. In other words, checks if an event
+         * is a child of this node. As the check is done, the partial result
+         * is cached on `matchedDepth`, for future checks.
+         */
         function matchPath(e) {
+            const { endTime } = TraceEngine.Legacy.timesForEventInMilliseconds(e);
             if (matchedDepth === path.length) {
                 return true;
             }
             if (matchedDepth !== depth - 1) {
                 return false;
             }
-            if (!e.endTime) {
+            if (!endTime) {
                 return false;
             }
             if (!eventIdCallback) {
@@ -166,7 +193,7 @@ export class TopDownNode extends Node {
             }
             return false;
         }
-        function onEndEvent(_e) {
+        function onEndEvent() {
             --depth;
             if (matchedDepth > depth) {
                 matchedDepth = depth;
@@ -180,8 +207,8 @@ export class TopDownNode extends Node {
     }
 }
 export class TopDownRootNode extends TopDownNode {
-    events;
     filter;
+    events;
     startTime;
     endTime;
     eventGroupIdCallback;
@@ -213,6 +240,9 @@ export class TopDownRootNode extends TopDownNode {
         }
         const groupNodes = new Map();
         for (const node of flatNodes.values()) {
+            if (!node.event) {
+                continue;
+            }
             const groupId = this.eventGroupIdCallback(node.event);
             let groupNode = groupNodes.get(groupId);
             if (!groupNode) {
@@ -253,7 +283,8 @@ export class BottomUpRootNode extends Node {
     }
     filterChildren(children) {
         for (const [id, child] of children) {
-            if (child.event && !this.textFilter.accept(child.event)) {
+            // to provide better context to user only filter first (top) level.
+            if (child.event && child.depth <= 1 && !this.textFilter.accept(child.event)) {
                 children.delete(id);
             }
         }
@@ -273,24 +304,32 @@ export class BottomUpRootNode extends Node {
         const selfTimeStack = [endTime - startTime];
         const firstNodeStack = [];
         const totalTimeById = new Map();
-        TimelineModelImpl.forEachEvent(this.events, onStartEvent, onEndEvent, undefined, startTime, endTime, this.filter);
+        TraceEngine.Helpers.Trace.forEachEvent(this.events, {
+            onStartEvent,
+            onEndEvent,
+            startTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(this.startTime),
+            endTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(this.endTime),
+            eventFilter: this.filter,
+            ignoreAsyncEvents: false,
+        });
         function onStartEvent(e) {
-            const actualEndTime = e.endTime !== undefined ? Math.min(e.endTime, endTime) : endTime;
-            const duration = actualEndTime - Math.max(e.startTime, startTime);
+            const { startTime: currentStartTime, endTime: currentEndTime } = TraceEngine.Helpers.Timing.eventTimingsMilliSeconds(e);
+            const actualEndTime = currentEndTime !== undefined ? Math.min(currentEndTime, endTime) : endTime;
+            const duration = actualEndTime - Math.max(currentStartTime, startTime);
             selfTimeStack[selfTimeStack.length - 1] -= duration;
             selfTimeStack.push(duration);
-            const id = _eventId(e);
+            const id = generateEventID(e);
             const noNodeOnStack = !totalTimeById.has(id);
             if (noNodeOnStack) {
                 totalTimeById.set(id, duration);
             }
             firstNodeStack.push(noNodeOnStack);
         }
-        function onEndEvent(e) {
-            const id = _eventId(e);
+        function onEndEvent(event) {
+            const id = generateEventID(event);
             let node = nodeById.get(id);
             if (!node) {
-                node = new BottomUpNode(root, id, e, false, root);
+                node = new BottomUpNode(root, id, event, false, root);
                 nodeById.set(id, node);
             }
             node.selfTime += selfTimeStack.pop() || 0;
@@ -317,6 +356,9 @@ export class BottomUpRootNode extends Node {
         }
         const groupNodes = new Map();
         for (const node of flatNodes.values()) {
+            if (!node.event) {
+                continue;
+            }
             const groupId = this.eventGroupIdCallback(node.event);
             let groupNode = groupNodes.get(groupId);
             if (!groupNode) {
@@ -382,20 +424,29 @@ export class BottomUpNode extends Node {
         const endTime = this.root.endTime;
         let lastTimeMarker = startTime;
         const self = this;
-        TimelineModelImpl.forEachEvent(this.root.events, onStartEvent, onEndEvent, undefined, startTime, endTime, this.root.filter);
+        TraceEngine.Helpers.Trace.forEachEvent(this.root.events, {
+            onStartEvent,
+            onEndEvent,
+            startTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(startTime),
+            endTime: TraceEngine.Helpers.Timing.millisecondsToMicroseconds(endTime),
+            eventFilter: this.root.filter,
+            ignoreAsyncEvents: false,
+        });
         function onStartEvent(e) {
-            const actualEndTime = e.endTime !== undefined ? Math.min(e.endTime, endTime) : endTime;
-            const duration = actualEndTime - Math.max(e.startTime, startTime);
+            const { startTime: currentStartTime, endTime: currentEndTime } = TraceEngine.Helpers.Timing.eventTimingsMilliSeconds(e);
+            const actualEndTime = currentEndTime !== undefined ? Math.min(currentEndTime, endTime) : endTime;
+            const duration = actualEndTime - Math.max(currentStartTime, startTime);
             if (duration < 0) {
                 console.assert(false, 'Negative duration of an event');
             }
             selfTimeStack[selfTimeStack.length - 1] -= duration;
             selfTimeStack.push(duration);
-            const id = _eventId(e);
+            const id = generateEventID(e);
             eventIdStack.push(id);
             eventStack.push(e);
         }
         function onEndEvent(e) {
+            const { startTime: currentStartTime, endTime: currentEndTime } = TraceEngine.Helpers.Timing.eventTimingsMilliSeconds(e);
             const selfTime = selfTimeStack.pop();
             const id = eventIdStack.pop();
             eventStack.pop();
@@ -416,8 +467,8 @@ export class BottomUpNode extends Node {
                 node = new BottomUpNode(self.root, childId, event, hasChildren, self);
                 nodeById.set(childId, node);
             }
-            const actualEndTime = e.endTime !== undefined ? Math.min(e.endTime, endTime) : endTime;
-            const totalTime = actualEndTime - Math.max(e.startTime, lastTimeMarker);
+            const actualEndTime = currentEndTime !== undefined ? Math.min(currentEndTime, endTime) : endTime;
+            const totalTime = actualEndTime - Math.max(currentStartTime, lastTimeMarker);
             node.selfTime += selfTime || 0;
             node.totalTime += totalTime;
             lastTimeMarker = actualEndTime;
@@ -434,42 +485,40 @@ export class BottomUpNode extends Node {
     }
 }
 export function eventURL(event) {
-    const data = event.args['data'] || event.args['beginData'];
-    if (data && data['url']) {
-        return data['url'];
+    // TODO(40287735): this overlaps a lot with the method in
+    // TimelineUIUtils; but this cannot call that because the Model cannot
+    // depend on the UIUtils module. Restructure this and that method so we
+    // can call the same method in both places.
+    if (event.args?.data?.url) {
+        return event.args.data.url;
     }
-    let frame = eventStackFrame(event);
-    while (frame) {
-        const url = frame['url'];
-        if (url) {
-            return url;
-        }
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        frame = (frame.parent);
+    const frame = eventStackFrame(event);
+    if (frame) {
+        return frame.url;
     }
     return null;
 }
 export function eventStackFrame(event) {
-    if (event.name === RecordType.JSFrame) {
-        return event.args['data'] || null;
+    if (TraceEngine.Types.TraceEvents.isProfileCall(event)) {
+        return event.callFrame;
     }
-    return TimelineData.forEvent(event).topFrame();
+    const topFrame = event.args?.data?.stackTrace?.[0];
+    if (!topFrame) {
+        return null;
+    }
+    return { ...topFrame, scriptId: String(topFrame.scriptId) };
 }
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export function _eventId(event) {
-    if (event.name === RecordType.TimeStamp) {
+export function generateEventID(event) {
+    if (TraceEngine.Types.TraceEvents.isProfileCall(event)) {
+        const name = TimelineJSProfileProcessor.isNativeRuntimeFrame(event.callFrame) ?
+            TimelineJSProfileProcessor.nativeGroup(event.callFrame.functionName) :
+            event.callFrame.functionName;
+        const location = event.callFrame.scriptId || event.callFrame.url || '';
+        return `f:${name}@${location}`;
+    }
+    if (TraceEngine.Types.TraceEvents.isTraceEventTimeStamp(event)) {
         return `${event.name}:${event.args.data.message}`;
     }
-    if (event.name !== RecordType.JSFrame) {
-        return event.name;
-    }
-    const frame = event.args['data'];
-    const location = frame['scriptId'] || frame['url'] || '';
-    const functionName = frame['functionName'];
-    const name = TimelineJSProfileProcessor.isNativeRuntimeFrame(frame) ?
-        TimelineJSProfileProcessor.nativeGroup(functionName) || functionName :
-        `${functionName}:${frame['lineNumber']}:${frame['columnNumber']}`;
-    return `f:${name}@${location}`;
+    return event.name;
 }
 //# sourceMappingURL=TimelineProfileTree.js.map

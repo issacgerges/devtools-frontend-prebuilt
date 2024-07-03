@@ -4,8 +4,8 @@
 import * as i18n from '../../core/i18n/i18n.js';
 const UIStrings = {
     /**
-    * @description Assertion error message when failing to load a file.
-    */
+     * @description Assertion error message when failing to load a file.
+     */
     unableToReadFilesWithThis: '`PlatformFileSystem` cannot read files.',
 };
 const str_ = i18n.i18n.registerUIStrings('models/persistence/PlatformFileSystem.ts', UIStrings);
@@ -40,6 +40,9 @@ export class PlatformFileSystem {
         return Promise.resolve(null);
     }
     deleteFile(_path) {
+        return Promise.resolve(false);
+    }
+    deleteDirectoryRecursively(_path) {
         return Promise.resolve(false);
     }
     requestFileBlob(_path) {

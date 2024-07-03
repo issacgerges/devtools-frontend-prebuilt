@@ -1,7 +1,6 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import { Capability } from './Target.js';
 import { SDKModel } from './SDKModel.js';
 /**
  * The `IssuesModel` is a thin dispatch that does not store issues, but only creates the representation
@@ -14,7 +13,7 @@ export class IssuesModel extends SDKModel {
     #enabled = false;
     constructor(target) {
         super(target);
-        this.ensureEnabled();
+        void this.ensureEnabled();
     }
     async ensureEnabled() {
         if (this.#enabled) {
@@ -26,7 +25,7 @@ export class IssuesModel extends SDKModel {
         await auditsAgent.invoke_enable();
     }
     issueAdded(issueAddedEvent) {
-        this.dispatchEventToListeners("IssueAdded" /* IssueAdded */, { issuesModel: this, inspectorIssue: issueAddedEvent.issue });
+        this.dispatchEventToListeners("IssueAdded" /* Events.IssueAdded */, { issuesModel: this, inspectorIssue: issueAddedEvent.issue });
     }
     dispose() {
         super.dispose();
@@ -39,5 +38,5 @@ export class IssuesModel extends SDKModel {
         return null;
     }
 }
-SDKModel.register(IssuesModel, { capabilities: Capability.Audits, autostart: true });
+SDKModel.register(IssuesModel, { capabilities: 32768 /* Capability.Audits */, autostart: true });
 //# sourceMappingURL=IssuesModel.js.map

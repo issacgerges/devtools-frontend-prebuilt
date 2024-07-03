@@ -2,11 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as Platform from '../../core/platform/platform.js';
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-let _id = 0;
+import { Dialog } from './Dialog.js';
+let id = 0;
 export function nextId(prefix) {
-    return (prefix || '') + ++_id;
+    return (prefix || '') + ++id;
 }
 export function bindLabelToControl(label, control) {
     const controlId = nextId('labelledControl');
@@ -71,6 +70,9 @@ export function markAsMenu(element) {
 }
 export function markAsMenuItem(element) {
     element.setAttribute('role', 'menuitem');
+}
+export function markAsMenuItemCheckBox(element) {
+    element.setAttribute('role', 'menuitemcheckbox');
 }
 export function markAsMenuItemSubMenu(element) {
     markAsMenuItem(element);
@@ -194,31 +196,14 @@ export function setHidden(element, value) {
 export function setLevel(element, level) {
     element.setAttribute('aria-level', level.toString());
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var AutocompleteInteractionModel;
-(function (AutocompleteInteractionModel) {
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    AutocompleteInteractionModel["inline"] = "inline";
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    AutocompleteInteractionModel["list"] = "list";
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    AutocompleteInteractionModel["both"] = "both";
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    AutocompleteInteractionModel["none"] = "none";
-})(AutocompleteInteractionModel || (AutocompleteInteractionModel = {}));
-export function setAutocomplete(element, interactionModel = AutocompleteInteractionModel.none) {
+export function setAutocomplete(element, interactionModel = "none" /* AutocompleteInteractionModel.None */) {
     element.setAttribute('aria-autocomplete', interactionModel);
 }
 export function clearAutocomplete(element) {
     element.removeAttribute('aria-autocomplete');
 }
-export function setHasPopup(element, value = "false" /* False */) {
-    if (value !== "false" /* False */) {
+export function setHasPopup(element, value = "false" /* PopupRole.False */) {
+    if (value !== "false" /* PopupRole.False */) {
         element.setAttribute('aria-haspopup', value);
     }
     else {
@@ -260,12 +245,9 @@ export function setProgressBarValue(element, valueNow, valueText) {
         element.setAttribute('aria-valuetext', valueText);
     }
 }
-export function setAccessibleName(element, name) {
+export function setLabel(element, name) {
     element.setAttribute('aria-label', name);
 }
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _descriptionMap = new WeakMap();
 export function setDescription(element, description) {
     // Nodes in the accessibility tree are made up of a core
     // triplet of "name", "value", "description"
@@ -278,70 +260,7 @@ export function setDescription(element, description) {
     // to appear with the description when the element is hovered.
     // This is usually fine, except that DevTools has its own styled
     // tooltips which would interfere with the browser tooltips.
-    //
-    // In future, the aria-description attribute may be used once it
-    // is unflagged.
-    //
-    // aria-describedby requires that an extra element exist in DOM
-    // that this element can point to. Both elements also have to
-    // be in the same shadow root. This is not trivial to manage.
-    // The rest of DevTools shouldn't have to worry about this,
-    // so there is some unfortunate code below.
-    const oldDescription = _descriptionMap.get(element);
-    if (oldDescription) {
-        oldDescription.remove();
-    }
-    element.removeAttribute('data-aria-utils-animation-hack');
-    if (!description) {
-        _descriptionMap.delete(element);
-        element.removeAttribute('aria-describedby');
-        return;
-    }
-    // We make a hidden element that contains the decsription
-    // and will be pointed to by aria-describedby.
-    const descriptionElement = document.createElement('span');
-    descriptionElement.textContent = description;
-    descriptionElement.style.display = 'none';
-    ensureId(descriptionElement);
-    element.setAttribute('aria-describedby', descriptionElement.id);
-    _descriptionMap.set(element, descriptionElement);
-    // Now we have to actually put this description element
-    // somewhere in the DOM so that we can point to it.
-    // It would be nice to just put it in the body, but that
-    // wouldn't work if the main element is in a shadow root.
-    // So the cleanest approach is to add the description element
-    // as a child of the main element. But wait! Some HTML elements
-    // aren't supposed to have children. Blink won't search inside
-    // these elements, and won't find our description element.
-    const contentfulVoidTags = new Set(['INPUT', 'IMG']);
-    if (!contentfulVoidTags.has(element.tagName)) {
-        element.appendChild(descriptionElement);
-        // If we made it here, someone setting .textContent
-        // or removeChildren on the element will blow away
-        // our description. At least we tried our best!
-        return;
-    }
-    // We have some special element, like an <input>, where putting the
-    // description element inside it doesn't work.
-    // Lets try the next best thing, and just put the description element
-    // next to it in the DOM.
-    const inserted = element.insertAdjacentElement('afterend', descriptionElement);
-    if (inserted) {
-        return;
-    }
-    // Uh oh, the insertion didn't work! That means we aren't currently in the DOM.
-    // How can we find out when the element enters the DOM?
-    // See inspectorCommon.css
-    element.setAttribute('data-aria-utils-animation-hack', 'sorry');
-    element.addEventListener('animationend', () => {
-        // Someone might have made a new description in the meantime.
-        if (_descriptionMap.get(element) !== descriptionElement) {
-            return;
-        }
-        element.removeAttribute('data-aria-utils-animation-hack');
-        // Try it again. This time we are in the DOM, so it *should* work.
-        element.insertAdjacentElement('afterend', descriptionElement);
-    }, { once: true });
+    element.setAttribute('aria-description', description);
 }
 export function setActiveDescendant(element, activedescendant) {
     if (!activedescendant) {
@@ -349,10 +268,8 @@ export function setActiveDescendant(element, activedescendant) {
         return;
     }
     if (activedescendant.isConnected && element.isConnected) {
-        console.assert(element.hasSameShadowRoot(activedescendant), 'elements are not in the same shadow dom');
-    }
-    else {
-        console.warn('One or more elements in an active-descendant relationship are not yet attached to the DOM tree.');
+        console.assert(Platform.DOMUtilities.getEnclosingShadowRootForNode(activedescendant) ===
+            Platform.DOMUtilities.getEnclosingShadowRootForNode(element), 'elements are not in the same shadow dom');
     }
     ensureId(activedescendant);
     element.setAttribute('aria-activedescendant', activedescendant.id);
@@ -369,43 +286,48 @@ function hideFromLayout(element) {
     element.style.width = '100em';
     element.style.overflow = 'hidden';
 }
-let alertElementOne;
-let alertElementTwo;
-let alertToggle = false;
+const alertElements = new WeakMap();
+function createAlertElement(container) {
+    const element = container.createChild('div');
+    hideFromLayout(element);
+    element.setAttribute('role', 'alert');
+    element.setAttribute('aria-atomic', 'true');
+    return element;
+}
+export function getOrCreateAlertElements(container = document.body) {
+    let state = alertElements.get(container);
+    if (!state) {
+        state = {
+            one: createAlertElement(container),
+            two: createAlertElement(container),
+            alertToggle: false,
+        };
+        alertElements.set(container, state);
+    }
+    return state;
+}
 /**
  * This function instantiates and switches off returning one of two offscreen alert elements.
  * We utilize two alert elements to ensure that alerts with the same string are still registered
  * as changes and trigger screen reader announcement.
  */
-export function alertElementInstance() {
-    if (!alertElementOne) {
-        const element = document.body.createChild('div');
-        hideFromLayout(element);
-        element.setAttribute('role', 'alert');
-        element.setAttribute('aria-atomic', 'true');
-        alertElementOne = element;
+export function alertElementInstance(container = document.body) {
+    const state = getOrCreateAlertElements(container);
+    state.alertToggle = !state.alertToggle;
+    if (state.alertToggle) {
+        state.two.textContent = '';
+        return state.one;
     }
-    if (!alertElementTwo) {
-        const element = document.body.createChild('div');
-        hideFromLayout(element);
-        element.setAttribute('role', 'alert');
-        element.setAttribute('aria-atomic', 'true');
-        alertElementTwo = element;
-    }
-    alertToggle = !alertToggle;
-    if (alertToggle) {
-        alertElementTwo.textContent = '';
-        return alertElementOne;
-    }
-    alertElementOne.textContent = '';
-    return alertElementTwo;
+    state.one.textContent = '';
+    return state.two;
 }
 /**
  * This function is used to announce a message with the screen reader.
  * Setting the textContent would allow the SR to access the offscreen element via browse mode
  */
 export function alert(message) {
-    const element = alertElementInstance();
+    const dialog = Dialog.getInstance();
+    const element = alertElementInstance(dialog && dialog.isShowing() ? dialog.contentElement : undefined);
     element.textContent = Platform.StringUtilities.trimEndWithMaxLength(message, 10000);
 }
 //# sourceMappingURL=ARIAUtils.js.map

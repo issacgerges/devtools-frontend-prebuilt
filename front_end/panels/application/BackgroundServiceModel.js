@@ -13,14 +13,14 @@ export class BackgroundServiceModel extends SDK.SDKModel.SDKModel {
     }
     enable(service) {
         this.events.set(service, []);
-        this.backgroundServiceAgent.invoke_startObserving({ service });
+        void this.backgroundServiceAgent.invoke_startObserving({ service });
     }
     setRecording(shouldRecord, service) {
-        this.backgroundServiceAgent.invoke_setRecording({ shouldRecord, service });
+        void this.backgroundServiceAgent.invoke_setRecording({ shouldRecord, service });
     }
     clearEvents(service) {
         this.events.set(service, []);
-        this.backgroundServiceAgent.invoke_clearEvents({ service });
+        void this.backgroundServiceAgent.invoke_clearEvents({ service });
     }
     getEvents(service) {
         return this.events.get(service) || [];
@@ -35,9 +35,7 @@ export class BackgroundServiceModel extends SDK.SDKModel.SDKModel {
         this.dispatchEventToListeners(Events.BackgroundServiceEventReceived, backgroundServiceEvent);
     }
 }
-SDK.SDKModel.SDKModel.register(BackgroundServiceModel, { capabilities: SDK.Target.Capability.Browser, autostart: false });
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
+SDK.SDKModel.SDKModel.register(BackgroundServiceModel, { capabilities: 1 /* SDK.Target.Capability.Browser */, autostart: false });
 export var Events;
 (function (Events) {
     Events["RecordingStateChanged"] = "RecordingStateChanged";

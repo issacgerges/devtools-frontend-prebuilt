@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as UI from '../../../ui/legacy/legacy.js';
-import { BottomPaddingWithoutParam, BottomPaddingWithParam, LeftMarginOfText, LeftSideTopPadding, NodeLabelFontStyle, ParamLabelFontStyle, RightMarginOfText, TotalInputPortHeight, TotalOutputPortHeight, TotalParamPortHeight } from './GraphStyle.js';
+import { BottomPaddingWithoutParam, BottomPaddingWithParam, LeftMarginOfText, LeftSideTopPadding, NodeLabelFontStyle, ParamLabelFontStyle, RightMarginOfText, TotalInputPortHeight, TotalOutputPortHeight, TotalParamPortHeight, } from './GraphStyle.js';
 import { calculateInputPortXY, calculateOutputPortXY, calculateParamPortXY } from './NodeRendererUtility.js';
 // A class that represents a node of a graph, consisting of the information needed to layout the
 // node and display the node. Each node has zero or more ports, including input, output, and param ports.
@@ -47,12 +47,12 @@ export class NodeView {
      * when the whole NodeView will be gone.
      */
     addParamPort(paramId, paramType) {
-        const paramPorts = this.getPortsByType("Param" /* Param */);
+        const paramPorts = this.getPortsByType("Param" /* PortTypes.Param */);
         const numberOfParams = paramPorts.length;
         const { x, y } = calculateParamPortXY(numberOfParams, this.layout.inputPortSectionHeight);
         this.addPort({
             id: generateParamPortId(this.id, paramId),
-            type: "Param" /* Param */,
+            type: "Param" /* PortTypes.Param */,
             label: paramType,
             x,
             y,
@@ -116,7 +116,7 @@ export class NodeView {
     setupInputPorts() {
         for (let i = 0; i < this.numberOfInputs; i++) {
             const { x, y } = calculateInputPortXY(i);
-            this.addPort({ id: generateInputPortId(this.id, i), type: "In" /* In */, x, y, label: undefined });
+            this.addPort({ id: generateInputPortId(this.id, i), type: "In" /* PortTypes.In */, x, y, label: undefined });
         }
     }
     // Setup the properties of each output port.
@@ -134,7 +134,7 @@ export class NodeView {
                 port.y = y;
             }
             else {
-                this.addPort({ id: portId, type: "Out" /* Out */, x, y, label: undefined });
+                this.addPort({ id: portId, type: "Out" /* PortTypes.Out */, x, y, label: undefined });
             }
         }
     }
@@ -181,21 +181,19 @@ export class NodeLabelGenerator {
         return label;
     }
 }
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-let _contextForFontTextMeasuring;
+let contextForFontTextMeasuring;
 /**
  * Get the text width using given font style.
  */
 export const measureTextWidth = (text, fontStyle) => {
-    if (!_contextForFontTextMeasuring) {
+    if (!contextForFontTextMeasuring) {
         const context = document.createElement('canvas').getContext('2d');
         if (!context) {
             throw new Error('Unable to create canvas context.');
         }
-        _contextForFontTextMeasuring = context;
+        contextForFontTextMeasuring = context;
     }
-    const context = _contextForFontTextMeasuring;
+    const context = contextForFontTextMeasuring;
     context.save();
     if (fontStyle) {
         context.font = fontStyle;

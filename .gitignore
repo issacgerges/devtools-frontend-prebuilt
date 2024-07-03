@@ -3,3 +3,5 @@
 .gclient
 .gclient_entries
 node_modules/
+.gclient_previous_sync_commits
+.gcs_entries

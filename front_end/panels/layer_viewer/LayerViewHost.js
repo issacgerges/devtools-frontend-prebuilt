@@ -6,8 +6,8 @@ import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 const UIStrings = {
     /**
-    *@description Text in Layer View Host of the Layers panel
-    */
+     *@description Text in Layer View Host of the Layers panel
+     */
     showInternalLayers: 'Show internal layers',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/layer_viewer/LayerViewHost.ts', UIStrings);
@@ -37,31 +37,31 @@ export class Selection {
 export class LayerSelection extends Selection {
     constructor(layer) {
         console.assert(Boolean(layer), 'LayerSelection with empty layer');
-        super("Layer" /* Layer */, layer);
+        super("Layer" /* Type.Layer */, layer);
     }
     isEqual(other) {
-        return other.typeInternal === "Layer" /* Layer */ && other.layer().id() === this.layer().id();
+        return other.typeInternal === "Layer" /* Type.Layer */ && other.layer().id() === this.layer().id();
     }
 }
 export class ScrollRectSelection extends Selection {
     scrollRectIndex;
     constructor(layer, scrollRectIndex) {
-        super("ScrollRect" /* ScrollRect */, layer);
+        super("ScrollRect" /* Type.ScrollRect */, layer);
         this.scrollRectIndex = scrollRectIndex;
     }
     isEqual(other) {
-        return other.typeInternal === "ScrollRect" /* ScrollRect */ && this.layer().id() === other.layer().id() &&
+        return other.typeInternal === "ScrollRect" /* Type.ScrollRect */ && this.layer().id() === other.layer().id() &&
             this.scrollRectIndex === other.scrollRectIndex;
     }
 }
 export class SnapshotSelection extends Selection {
     snapshotInternal;
     constructor(layer, snapshot) {
-        super("Snapshot" /* Snapshot */, layer);
+        super("Snapshot" /* Type.Snapshot */, layer);
         this.snapshotInternal = snapshot;
     }
     isEqual(other) {
-        return other.typeInternal === "Snapshot" /* Snapshot */ && this.layer().id() === other.layer().id() &&
+        return other.typeInternal === "Snapshot" /* Type.Snapshot */ && this.layer().id() === other.layer().id() &&
             this.snapshotInternal === other.snapshotInternal;
     }
     snapshot() {
@@ -80,7 +80,7 @@ export class LayerViewHost {
         this.selectedObject = null;
         this.hoveredObject = null;
         this.showInternalLayersSettingInternal =
-            Common.Settings.Settings.instance().createSetting('layersShowInternalLayers', false);
+            Common.Settings.Settings.instance().createSetting('layers-show-internal-layers', false);
         this.snapshotLayers = new Map();
     }
     registerView(layerView) {
@@ -133,12 +133,15 @@ export class LayerViewHost {
         return this.selectedObject;
     }
     showContextMenu(contextMenu, selection) {
-        contextMenu.defaultSection().appendCheckboxItem(i18nString(UIStrings.showInternalLayers), this.toggleShowInternalLayers.bind(this), this.showInternalLayersSettingInternal.get());
+        contextMenu.defaultSection().appendCheckboxItem(i18nString(UIStrings.showInternalLayers), this.toggleShowInternalLayers.bind(this), {
+            checked: this.showInternalLayersSettingInternal.get(),
+            jslogContext: this.showInternalLayersSettingInternal.name,
+        });
         const node = selection && selection.layer() && selection.layer().nodeForSelfOrAncestor();
         if (node) {
             contextMenu.appendApplicableItems(node);
         }
-        contextMenu.show();
+        void contextMenu.show();
     }
     showInternalLayersSetting() {
         return this.showInternalLayersSettingInternal;

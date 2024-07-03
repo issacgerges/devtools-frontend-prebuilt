@@ -32,6 +32,7 @@ import * as Common from '../../core/common/common.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import { ElementsSidebarPane } from './ElementsSidebarPane.js';
 import metricsSidebarPaneStyles from './metricsSidebarPane.css.js';
 export class MetricsSidebarPane extends ElementsSidebarPane {
@@ -48,6 +49,7 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
         this.inlineStyle = null;
         this.highlightMode = '';
         this.boxElements = [];
+        this.contentElement.setAttribute('jslog', `${VisualLogging.pane('styles-metrics')}`);
     }
     doUpdate() {
         // "style" attribute might have changed. Update metrics unless they are being edited
@@ -73,8 +75,8 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
             return Promise.resolve();
         }
         const promises = [
-            cssModel.computedStylePromise(node.id).then(callback.bind(this)),
-            cssModel.inlineStylesPromise(node.id).then(inlineStyleResult => {
+            cssModel.getComputedStyle(node.id).then(callback.bind(this)),
+            cssModel.getInlineStyles(node.id).then(inlineStyleResult => {
                 if (inlineStyleResult && this.node() === node) {
                     this.inlineStyle = inlineStyleResult.inlineStyle;
                 }
@@ -151,6 +153,11 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
             value = value.replace(/px$/, '');
             value = Platform.NumberUtilities.toFixedIfFloating(value);
             element.textContent = value;
+            element.setAttribute('jslog', `${VisualLogging.value(propertyName).track({
+                dblclick: true,
+                keydown: 'Enter|Escape|ArrowUp|ArrowDown|PageUp|PageDown',
+                change: true,
+            })}`);
             element.addEventListener('dblclick', this.startEditing.bind(this, element, name, propertyName, style), false);
             return element;
         }
@@ -209,7 +216,7 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
             Common.Color.PageHighlight.Padding,
             Common.Color.PageHighlight.Border,
             Common.Color.PageHighlight.Margin,
-            Common.Color.Color.fromRGBA([0, 0, 0, 0]),
+            Common.Color.Legacy.fromRGBA([0, 0, 0, 0]),
         ];
         const boxLabels = ['content', 'padding', 'border', 'margin', 'position'];
         let previousBox = null;
@@ -232,17 +239,28 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
             }
             const boxElement = document.createElement('div');
             boxElement.className = `${name} highlighted`;
-            const backgroundColor = boxColors[i].asString(Common.Color.Format.RGBA) || '';
+            const backgroundColor = boxColors[i].asString("rgba" /* Common.Color.Format.RGBA */) || '';
             boxElement.style.backgroundColor = backgroundColor;
+            boxElement.setAttribute('jslog', `${VisualLogging.metricsBox().context(name).track({ hover: true })}`);
             boxElement.addEventListener('mouseover', this.highlightDOMNode.bind(this, true, name === 'position' ? 'all' : name), false);
             this.boxElements.push({ element: boxElement, name, backgroundColor });
             if (name === 'content') {
                 const widthElement = document.createElement('span');
                 widthElement.textContent = getContentAreaWidthPx(style);
                 widthElement.addEventListener('dblclick', this.startEditing.bind(this, widthElement, 'width', 'width', style), false);
+                widthElement.setAttribute('jslog', `${VisualLogging.value('width').track({
+                    dblclick: true,
+                    keydown: 'Enter|Escape|ArrowUp|ArrowDown|PageUp|PageDown',
+                    change: true,
+                })}`);
                 const heightElement = document.createElement('span');
                 heightElement.textContent = getContentAreaHeightPx(style);
                 heightElement.addEventListener('dblclick', this.startEditing.bind(this, heightElement, 'height', 'height', style), false);
+                heightElement.setAttribute('jslog', `${VisualLogging.value('height').track({
+                    dblclick: true,
+                    keydown: 'Enter|Escape|ArrowUp|ArrowDown|PageUp|PageDown',
+                    change: true,
+                })}`);
                 const timesElement = document.createElement('span');
                 timesElement.textContent = ' × ';
                 boxElement.appendChild(widthElement);
@@ -313,11 +331,11 @@ export class MetricsSidebarPane extends ElementsSidebarPane {
                 // An added property, remove the last property in the style.
                 const pastLastSourcePropertyIndex = this.inlineStyle.pastLastSourcePropertyIndex();
                 if (pastLastSourcePropertyIndex) {
-                    this.inlineStyle.allProperties()[pastLastSourcePropertyIndex - 1].setText('', false);
+                    void this.inlineStyle.allProperties()[pastLastSourcePropertyIndex - 1].setText('', false);
                 }
             }
             else {
-                this.inlineStyle.allProperties()[this.originalPropertyData.index].setText(this.originalPropertyData.propertyText || '', false);
+                void this.inlineStyle.allProperties()[this.originalPropertyData.index].setText(this.originalPropertyData.propertyText || '', false);
             }
         }
         this.editingEnded(element, context);

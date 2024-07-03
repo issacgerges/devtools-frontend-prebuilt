@@ -1,42 +1,13 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/*
- * Copyright (C) 2012 Google Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the #name of Google Inc. nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 import * as Common from '../common/common.js';
 import * as Host from '../host/host.js';
 import { DebuggerModel } from './DebuggerModel.js';
 import { HeapProfilerModel } from './HeapProfilerModel.js';
-import { RemoteFunction, RemoteObject, RemoteObjectImpl, RemoteObjectProperty, ScopeRemoteObject } from './RemoteObject.js';
-import { Capability, Type } from './Target.js';
+import { RemoteFunction, RemoteObject, RemoteObjectImpl, RemoteObjectProperty, ScopeRemoteObject, } from './RemoteObject.js';
 import { SDKModel } from './SDKModel.js';
+import { Type } from './Target.js';
 export class RuntimeModel extends SDKModel {
     agent;
     #executionContextById;
@@ -46,15 +17,15 @@ export class RuntimeModel extends SDKModel {
         super(target);
         this.agent = target.runtimeAgent();
         this.target().registerRuntimeDispatcher(new RuntimeDispatcher(this));
-        this.agent.invoke_enable();
+        void this.agent.invoke_enable();
         this.#executionContextById = new Map();
         this.#executionContextComparatorInternal = ExecutionContext.comparator;
         this.#hasSideEffectSupportInternal = null;
-        if (Common.Settings.Settings.instance().moduleSetting('customFormatters').get()) {
-            this.agent.invoke_setCustomObjectFormatterEnabled({ enabled: true });
+        if (Common.Settings.Settings.instance().moduleSetting('custom-formatters').get()) {
+            void this.agent.invoke_setCustomObjectFormatterEnabled({ enabled: true });
         }
         Common.Settings.Settings.instance()
-            .moduleSetting('customFormatters')
+            .moduleSetting('custom-formatters')
             .addChangeListener(this.customFormattersStateChanged.bind(this));
     }
     static isSideEffectFailure(response) {
@@ -75,7 +46,7 @@ export class RuntimeModel extends SDKModel {
         this.#executionContextComparatorInternal = comparator;
     }
     /** comparator
-       */
+     */
     executionContextComparator() {
         return this.#executionContextComparatorInternal;
     }
@@ -139,10 +110,10 @@ export class RuntimeModel extends SDKModel {
         return new RemoteObjectProperty(name, this.createRemoteObjectFromPrimitiveValue(value));
     }
     discardConsoleEntries() {
-        this.agent.invoke_discardConsoleEntries();
+        void this.agent.invoke_discardConsoleEntries();
     }
     releaseObjectGroup(objectGroup) {
-        this.agent.invoke_releaseObjectGroup({ objectGroup });
+        void this.agent.invoke_releaseObjectGroup({ objectGroup });
     }
     releaseEvaluationResult(result) {
         if ('object' in result && result.object) {
@@ -155,10 +126,10 @@ export class RuntimeModel extends SDKModel {
         }
     }
     runIfWaitingForDebugger() {
-        this.agent.invoke_runIfWaitingForDebugger();
+        void this.agent.invoke_runIfWaitingForDebugger();
     }
     customFormattersStateChanged({ data: enabled }) {
-        this.agent.invoke_setCustomObjectFormatterEnabled({ enabled });
+        void this.agent.invoke_setCustomObjectFormatterEnabled({ enabled });
     }
     async compileScript(expression, sourceURL, persistScript, executionContextId) {
         const response = await this.agent.invoke_compileScript({
@@ -214,24 +185,24 @@ export class RuntimeModel extends SDKModel {
         const result = await this.agent.invoke_getHeapUsage();
         return result.getError() ? null : result;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inspectRequested(payload, hints, executionContextId) {
         const object = this.createRemoteObject(payload);
-        if (hints && 'copyToClipboard' in hints && Boolean(hints.copyToClipboard)) {
-            this.copyRequested(object);
-            return;
-        }
-        if (hints && 'queryObjects' in hints && hints.queryObjects) {
-            this.queryObjectsRequested(object, executionContextId);
-            return;
+        if (hints !== null && typeof hints === 'object') {
+            if ('copyToClipboard' in hints && Boolean(hints.copyToClipboard)) {
+                this.copyRequested(object);
+                return;
+            }
+            if ('queryObjects' in hints && hints.queryObjects) {
+                void this.queryObjectsRequested(object, executionContextId);
+                return;
+            }
         }
         if (object.isNode()) {
-            Common.Revealer.reveal(object).then(object.release.bind(object));
+            void Common.Revealer.reveal(object).then(object.release.bind(object));
             return;
         }
         if (object.type === 'function') {
-            RemoteFunction.objectAsFunction(object).targetFunctionDetails().then(didGetDetails);
+            void RemoteFunction.objectAsFunction(object).targetFunctionDetails().then(didGetDetails);
             return;
         }
         function didGetDetails(response) {
@@ -239,12 +210,15 @@ export class RuntimeModel extends SDKModel {
             if (!response || !response.location) {
                 return;
             }
-            Common.Revealer.reveal(response.location);
+            void Common.Revealer.reveal(response.location);
         }
         object.release();
     }
     async addBinding(event) {
         return await this.agent.invoke_addBinding(event);
+    }
+    async removeBinding(request) {
+        return await this.agent.invoke_removeBinding(request);
     }
     bindingCalled(event) {
         this.dispatchEventToListeners(Events.BindingCalled, event);
@@ -254,10 +228,8 @@ export class RuntimeModel extends SDKModel {
             Host.InspectorFrontendHost.InspectorFrontendHostInstance.copyText(object.unserializableValue() || object.value);
             return;
         }
-        const indent = Common.Settings.Settings.instance().moduleSetting('textEditorIndent').get();
-        object
-            // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-            // @ts-expect-error
+        const indent = Common.Settings.Settings.instance().moduleSetting('text-editor-indent').get();
+        void object
             .callFunctionJSON(toStringForClipboard, [{
                 value: {
                     subtype: object.subtype,
@@ -345,17 +317,23 @@ export class RuntimeModel extends SDKModel {
         }
         // Check for a positive throwOnSideEffect response without triggering side effects.
         const response = await this.agent.invoke_evaluate({
-            expression: _sideEffectTestExpression,
+            expression: sideEffectTestExpression,
             contextId: testContext.id,
             throwOnSideEffect: true,
         });
         this.#hasSideEffectSupportInternal = response.getError() ? false : RuntimeModel.isSideEffectFailure(response);
         return this.#hasSideEffectSupportInternal;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     terminateExecution() {
         return this.agent.invoke_terminateExecution();
+    }
+    async getExceptionDetails(errorObjectId) {
+        const response = await this.agent.invoke_getExceptionDetails({ errorObjectId });
+        if (response.getError()) {
+            // This CDP method errors if called with non-Error object ids. Swallow that.
+            return undefined;
+        }
+        return response.exceptionDetails;
     }
 }
 /**
@@ -363,13 +341,8 @@ export class RuntimeModel extends SDKModel {
  * - IMPORTANT: must not actually cause user-visible or JS-visible side-effects.
  * - Must throw when evaluated with `throwOnSideEffect: true`.
  * - Must be valid when run from any ExecutionContext that supports `throwOnSideEffect`.
- * @const
  */
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _sideEffectTestExpression = '(async function(){ await 1; })()';
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
+const sideEffectTestExpression = '(async function(){ await 1; })()';
 export var Events;
 (function (Events) {
     Events["BindingCalled"] = "BindingCalled";
@@ -439,7 +412,7 @@ export class ExecutionContext {
     }
     static comparator(a, b) {
         function targetWeight(target) {
-            if (!target.parentTarget()) {
+            if (target.parentTarget()?.type() !== Type.Frame) {
                 return 5;
             }
             if (target.type() === Type.Frame) {
@@ -505,7 +478,6 @@ export class ExecutionContext {
         if (!needsTerminationOptions || this.runtimeModel.hasSideEffectSupport()) {
             return this.evaluateGlobal(options, userGesture, awaitPromise);
         }
-        /** @type {!EvaluationResult} */
         if (this.runtimeModel.hasSideEffectSupport() !== false) {
             await this.runtimeModel.checkSideEffectSupport();
             if (this.runtimeModel.hasSideEffectSupport()) {
@@ -579,5 +551,5 @@ export class ExecutionContext {
         this.#labelInternal = parsedUrl ? parsedUrl.lastPathComponentWithFragment() : '';
     }
 }
-SDKModel.register(RuntimeModel, { capabilities: Capability.JS, autostart: true });
+SDKModel.register(RuntimeModel, { capabilities: 4 /* Capability.JS */, autostart: true });
 //# sourceMappingURL=RuntimeModel.js.map

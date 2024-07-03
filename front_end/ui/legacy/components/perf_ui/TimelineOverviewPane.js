@@ -28,9 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 import * as Common from '../../../../core/common/common.js';
+import * as TraceEngine from '../../../../models/trace/trace.js';
 import * as UI from '../../legacy.js';
-import * as i18n from '../../../../core/i18n/i18n.js';
-import { Events as OverviewGridEvents, OverviewGrid } from './OverviewGrid.js';
+import { OverviewGrid } from './OverviewGrid.js';
+import { TimelineOverviewCalculator } from './TimelineOverviewCalculator.js';
+import timelineOverviewInfoStyles from './timelineOverviewInfo.css.js';
 export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) {
     overviewCalculator;
     overviewGrid;
@@ -57,7 +59,8 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.cursorArea.addEventListener('mousemove', this.onMouseMove.bind(this), true);
         this.cursorArea.addEventListener('mouseleave', this.hideCursor.bind(this), true);
         this.overviewGrid.setResizeEnabled(false);
-        this.overviewGrid.addEventListener(OverviewGridEvents.WindowChangedWithPosition, this.onWindowChanged, this);
+        this.overviewGrid.addEventListener("WindowChangedWithPosition" /* OverviewGridEvents.WindowChangedWithPosition */, this.onWindowChanged, this);
+        this.overviewGrid.addEventListener("BreadcrumbAdded" /* OverviewGridEvents.BreadcrumbAdded */, this.onBreadcrumbAdded, this);
         this.overviewGrid.setClickHandler(this.onClick.bind(this));
         this.overviewControls = [];
         this.markers = new Map();
@@ -70,16 +73,22 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.windowEndTime = Infinity;
         this.muteOnWindowChanged = false;
     }
+    enableCreateBreadcrumbsButton() {
+        const breacrumbsElement = this.overviewGrid.enableCreateBreadcrumbsButton();
+        breacrumbsElement.addEventListener('mousemove', this.onMouseMove.bind(this), true);
+        breacrumbsElement.addEventListener('mouseleave', this.hideCursor.bind(this), true);
+    }
     onMouseMove(event) {
         if (!this.cursorEnabled) {
             return;
         }
         const mouseEvent = event;
         const target = event.target;
-        this.cursorPosition = mouseEvent.offsetX + target.offsetLeft;
+        const offsetLeftRelativeToCursorArea = target.getBoundingClientRect().left - this.cursorArea.getBoundingClientRect().left;
+        this.cursorPosition = mouseEvent.offsetX + offsetLeftRelativeToCursorArea;
         this.cursorElement.style.left = this.cursorPosition + 'px';
         this.cursorElement.style.visibility = 'visible';
-        this.overviewInfo.setContent(this.buildOverviewInfo());
+        void this.overviewInfo.setContent(this.buildOverviewInfo());
     }
     async buildOverviewInfo() {
         const document = this.element.ownerDocument;
@@ -119,26 +128,34 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.overviewControls = overviewControls;
         this.update();
     }
+    set showingScreenshots(isShowing) {
+        this.overviewGrid.showingScreenshots = isShowing;
+    }
     setBounds(minimumBoundary, maximumBoundary) {
+        if (minimumBoundary === this.overviewCalculator.minimumBoundary() &&
+            maximumBoundary === this.overviewCalculator.maximumBoundary()) {
+            return;
+        }
         this.overviewCalculator.setBounds(minimumBoundary, maximumBoundary);
         this.overviewGrid.setResizeEnabled(true);
         this.cursorEnabled = true;
+        this.scheduleUpdate(minimumBoundary, maximumBoundary);
     }
     setNavStartTimes(navStartTimes) {
         this.overviewCalculator.setNavStartTimes(navStartTimes);
     }
-    scheduleUpdate() {
-        this.updateThrottler.schedule(async () => {
-            this.update();
+    scheduleUpdate(start, end) {
+        void this.updateThrottler.schedule(async () => {
+            this.update(start, end);
         });
     }
-    update() {
+    update(start, end) {
         if (!this.isShowing()) {
             return;
         }
         this.overviewCalculator.setDisplayWidth(this.overviewGrid.clientWidth());
         for (let i = 0; i < this.overviewControls.length; ++i) {
-            this.overviewControls[i].update();
+            this.overviewControls[i].update(start, end);
         }
         this.overviewGrid.updateDividers(this.overviewCalculator);
         this.updateMarkers();
@@ -147,11 +164,14 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
     setMarkers(markers) {
         this.markers = markers;
     }
+    getMarkers() {
+        return this.markers;
+    }
     updateMarkers() {
         const filteredMarkers = new Map();
         for (const time of this.markers.keys()) {
             const marker = this.markers.get(time);
-            const position = Math.round(this.overviewCalculator.computePosition(time));
+            const position = Math.round(this.overviewCalculator.computePosition(TraceEngine.Types.Timing.MilliSeconds(time)));
             // Limit the number of markers to one per pixel.
             if (filteredMarkers.has(position)) {
                 continue;
@@ -180,6 +200,12 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
     onClick(event) {
         return this.overviewControls.some(control => control.onClick(event));
     }
+    onBreadcrumbAdded() {
+        this.dispatchEventToListeners("OverviewPaneBreadcrumbAdded" /* Events.OverviewPaneBreadcrumbAdded */, {
+            startTime: TraceEngine.Types.Timing.MilliSeconds(this.windowStartTime),
+            endTime: TraceEngine.Types.Timing.MilliSeconds(this.windowEndTime),
+        });
+    }
     onWindowChanged(event) {
         if (this.muteOnWindowChanged) {
             return;
@@ -188,10 +214,15 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         if (!this.overviewControls.length) {
             return;
         }
-        this.windowStartTime = event.data.rawStartValue;
-        this.windowEndTime = event.data.rawEndValue;
-        const windowTimes = { startTime: this.windowStartTime, endTime: this.windowEndTime };
-        this.dispatchEventToListeners(Events.WindowChanged, windowTimes);
+        this.windowStartTime =
+            event.data.rawStartValue === this.overviewCalculator.minimumBoundary() ? 0 : event.data.rawStartValue;
+        this.windowEndTime =
+            event.data.rawEndValue === this.overviewCalculator.maximumBoundary() ? Infinity : event.data.rawEndValue;
+        const windowTimes = {
+            startTime: TraceEngine.Types.Timing.MilliSeconds(this.windowStartTime),
+            endTime: TraceEngine.Types.Timing.MilliSeconds(this.windowEndTime),
+        };
+        this.dispatchEventToListeners("OverviewPaneWindowChanged" /* Events.OverviewPaneWindowChanged */, windowTimes);
     }
     setWindowTimes(startTime, endTime) {
         if (startTime === this.windowStartTime && endTime === this.windowEndTime) {
@@ -200,7 +231,10 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.windowStartTime = startTime;
         this.windowEndTime = endTime;
         this.updateWindow();
-        this.dispatchEventToListeners(Events.WindowChanged, { startTime: startTime, endTime: endTime });
+        this.dispatchEventToListeners("OverviewPaneWindowChanged" /* Events.OverviewPaneWindowChanged */, {
+            startTime: TraceEngine.Types.Timing.MilliSeconds(startTime),
+            endTime: TraceEngine.Types.Timing.MilliSeconds(endTime),
+        });
     }
     updateWindow() {
         if (!this.overviewControls.length) {
@@ -214,67 +248,6 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.muteOnWindowChanged = true;
         this.overviewGrid.setWindow(left, right);
         this.muteOnWindowChanged = false;
-    }
-}
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["WindowChanged"] = "WindowChanged";
-})(Events || (Events = {}));
-export class TimelineOverviewCalculator {
-    minimumBoundaryInternal;
-    maximumBoundaryInternal;
-    workingArea;
-    navStartTimes;
-    constructor() {
-        this.reset();
-    }
-    computePosition(time) {
-        return (time - this.minimumBoundaryInternal) / this.boundarySpan() * this.workingArea;
-    }
-    positionToTime(position) {
-        return position / this.workingArea * this.boundarySpan() + this.minimumBoundaryInternal;
-    }
-    setBounds(minimumBoundary, maximumBoundary) {
-        this.minimumBoundaryInternal = minimumBoundary;
-        this.maximumBoundaryInternal = maximumBoundary;
-    }
-    setNavStartTimes(navStartTimes) {
-        this.navStartTimes = navStartTimes;
-    }
-    setDisplayWidth(clientWidth) {
-        this.workingArea = clientWidth;
-    }
-    reset() {
-        this.setBounds(0, 100);
-    }
-    formatValue(value, precision) {
-        // If there are nav start times the value needs to be remapped.
-        if (this.navStartTimes) {
-            // Find the latest possible nav start time which is considered earlier
-            // than the value passed through.
-            const navStartTimes = Array.from(this.navStartTimes.values());
-            for (let i = navStartTimes.length - 1; i >= 0; i--) {
-                if (value > navStartTimes[i].startTime) {
-                    value -= (navStartTimes[i].startTime - this.zeroTime());
-                    break;
-                }
-            }
-        }
-        return i18n.TimeUtilities.preciseMillisToString(value - this.zeroTime(), precision);
-    }
-    maximumBoundary() {
-        return this.maximumBoundaryInternal;
-    }
-    minimumBoundary() {
-        return this.minimumBoundaryInternal;
-    }
-    zeroTime() {
-        return this.minimumBoundaryInternal;
-    }
-    boundarySpan() {
-        return this.maximumBoundaryInternal - this.minimumBoundaryInternal;
     }
 }
 export class TimelineOverviewBase extends UI.Widget.VBox {
@@ -303,15 +276,15 @@ export class TimelineOverviewBase extends UI.Widget.VBox {
         return this.calculatorInternal;
     }
     update() {
-        this.resetCanvas();
+        throw new Error('Not implemented');
     }
     dispose() {
         this.detach();
     }
     reset() {
     }
-    overviewInfoPromise(_x) {
-        return Promise.resolve(null);
+    async overviewInfoPromise(_x) {
+        return null;
     }
     setCalculator(calculator) {
         this.calculatorInternal = calculator;
@@ -337,13 +310,13 @@ export class OverviewInfo {
     constructor(anchor) {
         this.anchorElement = anchor;
         this.glassPane = new UI.GlassPane.GlassPane();
-        this.glassPane.setPointerEventsBehavior("PierceContents" /* PierceContents */);
-        this.glassPane.setMarginBehavior("Arrow" /* Arrow */);
-        this.glassPane.setSizeBehavior("MeasureContent" /* MeasureContent */);
+        this.glassPane.setPointerEventsBehavior("PierceContents" /* UI.GlassPane.PointerEventsBehavior.PierceContents */);
+        this.glassPane.setMarginBehavior("Arrow" /* UI.GlassPane.MarginBehavior.Arrow */);
+        this.glassPane.setSizeBehavior("MeasureContent" /* UI.GlassPane.SizeBehavior.MeasureContent */);
         this.visible = false;
-        this.element = UI.Utils
+        this.element = UI.UIUtils
             .createShadowRootWithCoreStyles(this.glassPane.contentElement, {
-            cssFile: 'ui/legacy/components/perf_ui/timelineOverviewInfo.css',
+            cssFile: [timelineOverviewInfoStyles],
             delegatesFocus: undefined,
         })
             .createChild('div', 'overview-info');

@@ -4,90 +4,90 @@
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import locationsSettingsTabStyles from './locationsSettingsTab.css.js';
-let locationsSettingsTabInstance;
 const UIStrings = {
     /**
-    *@description Title in the Locations Settings Tab, where custom geographic locations that the user
-    *has entered are stored.
-    */
+     *@description Title in the Locations Settings Tab, where custom geographic locations that the user
+     *has entered are stored.
+     */
     customLocations: 'Custom locations',
     /**
-    *@description Label for the name of a geographic location that the user has entered.
-    */
+     *@description Label for the name of a geographic location that the user has entered.
+     */
     locationName: 'Location name',
     /**
-    *@description Abbreviation of latitude in Locations Settings Tab of the Device Toolbar
-    */
+     *@description Abbreviation of latitude in Locations Settings Tab of the Device Toolbar
+     */
     lat: 'Lat',
     /**
-    *@description Abbreviation of longitude in Locations Settings Tab of the Device Toolbar
-    */
+     *@description Abbreviation of longitude in Locations Settings Tab of the Device Toolbar
+     */
     long: 'Long',
     /**
-    *@description Text in Sensors View of the Device Toolbar
-    */
+     *@description Text in Sensors View of the Device Toolbar
+     */
     timezoneId: 'Timezone ID',
     /**
-    *@description Label for text input for the locale of a particular location.
-    */
+     *@description Label for text input for the locale of a particular location.
+     */
     locale: 'Locale',
     /**
-    *@description Label for text input for the latitude of a GPS position.
-    */
+     *@description Label for text input for the latitude of a GPS position.
+     */
     latitude: 'Latitude',
     /**
-    *@description Label for text input for the longitude of a GPS position.
-    */
+     *@description Label for text input for the longitude of a GPS position.
+     */
     longitude: 'Longitude',
     /**
-    *@description Error message in the Locations settings pane that declares the location name input must not be empty
-    */
+     *@description Error message in the Locations settings pane that declares the location name input must not be empty
+     */
     locationNameCannotBeEmpty: 'Location name cannot be empty',
     /**
-    *@description Error message in the Locations settings pane that declares the maximum length of the location name
-    *@example {50} PH1
-    */
+     *@description Error message in the Locations settings pane that declares the maximum length of the location name
+     *@example {50} PH1
+     */
     locationNameMustBeLessThanS: 'Location name must be less than {PH1} characters',
     /**
-    *@description Error message in the Locations settings pane that declares that the value for the latitude input must be a number
-    */
+     *@description Error message in the Locations settings pane that declares that the value for the latitude input must be a number
+     */
     latitudeMustBeANumber: 'Latitude must be a number',
     /**
-    *@description Error message in the Locations settings pane that declares the minimum value for the latitude input
-    *@example {-90} PH1
-    */
+     *@description Error message in the Locations settings pane that declares the minimum value for the latitude input
+     *@example {-90} PH1
+     */
     latitudeMustBeGreaterThanOrEqual: 'Latitude must be greater than or equal to {PH1}',
     /**
-    *@description Error message in the Locations settings pane that declares the maximum value for the latitude input
-    *@example {90} PH1
-    */
+     *@description Error message in the Locations settings pane that declares the maximum value for the latitude input
+     *@example {90} PH1
+     */
     latitudeMustBeLessThanOrEqualToS: 'Latitude must be less than or equal to {PH1}',
     /**
-    *@description Error message in the Locations settings pane that declares that the value for the longitude input must be a number
-    */
+     *@description Error message in the Locations settings pane that declares that the value for the longitude input must be a number
+     */
     longitudeMustBeANumber: 'Longitude must be a number',
     /**
-    *@description Error message in the Locations settings pane that declares the minimum value for the longitude input
-    *@example {-180} PH1
-    */
+     *@description Error message in the Locations settings pane that declares the minimum value for the longitude input
+     *@example {-180} PH1
+     */
     longitudeMustBeGreaterThanOr: 'Longitude must be greater than or equal to {PH1}',
     /**
-    *@description Error message in the Locations settings pane that declares the maximum value for the longitude input
-    *@example {180} PH1
-    */
+     *@description Error message in the Locations settings pane that declares the maximum value for the longitude input
+     *@example {180} PH1
+     */
     longitudeMustBeLessThanOrEqualTo: 'Longitude must be less than or equal to {PH1}',
     /**
-    *@description Error message in the Locations settings pane that declares timezone ID input invalid
-    */
+     *@description Error message in the Locations settings pane that declares timezone ID input invalid
+     */
     timezoneIdMustContainAlphabetic: 'Timezone ID must contain alphabetic characters',
     /**
-    *@description Error message in the Locations settings pane that declares locale input invalid
-    */
+     *@description Error message in the Locations settings pane that declares locale input invalid
+     */
     localeMustContainAlphabetic: 'Locale must contain alphabetic characters',
     /**
-    *@description Text of add locations button in Locations Settings Tab of the Device Toolbar
-    */
+     *@description Text of add locations button in Locations Settings Tab of the Device Toolbar
+     */
     addLocation: 'Add location...',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/sensors/LocationsSettingsTab.ts', UIStrings);
@@ -98,10 +98,11 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
     editor;
     constructor() {
         super(true);
+        this.element.setAttribute('jslog', `${VisualLogging.pane('emulation-locations')}`);
         this.contentElement.createChild('div', 'header').textContent = i18nString(UIStrings.customLocations);
-        const addButton = UI.UIUtils.createTextButton(i18nString(UIStrings.addLocation), this.addButtonClicked.bind(this), 'add-locations-button');
+        const addButton = UI.UIUtils.createTextButton(i18nString(UIStrings.addLocation), this.addButtonClicked.bind(this), { className: 'add-locations-button', jslogContext: 'emulation.add-location' });
         this.contentElement.appendChild(addButton);
-        this.list = new UI.ListWidget.ListWidget(this);
+        this.list = new UI.ListWidget.ListWidget(this, undefined, true);
         this.list.element.classList.add('locations-list');
         this.list.show(this.contentElement);
         this.customSetting =
@@ -130,12 +131,6 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
         this.customSetting.addChangeListener(this.locationsUpdated, this);
         this.setDefaultFocusedElement(addButton);
     }
-    static instance() {
-        if (!locationsSettingsTabInstance) {
-            locationsSettingsTabInstance = new LocationsSettingsTab();
-        }
-        return locationsSettingsTabInstance;
-    }
     wasShown() {
         super.wasShown();
         this.registerCSSFiles([locationsSettingsTabStyles]);
@@ -155,19 +150,29 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
     }
     renderItem(location, _editable) {
         const element = document.createElement('div');
+        element.role = 'row';
         element.classList.add('locations-list-item');
         const title = element.createChild('div', 'locations-list-text locations-list-title');
+        title.role = 'cell';
         const titleText = title.createChild('div', 'locations-list-title-text');
         titleText.textContent = location.title;
         UI.Tooltip.Tooltip.install(titleText, location.title);
         element.createChild('div', 'locations-list-separator');
-        element.createChild('div', 'locations-list-text').textContent = String(location.lat);
+        const lat = element.createChild('div', 'locations-list-text');
+        lat.textContent = String(location.lat);
+        lat.role = 'cell';
         element.createChild('div', 'locations-list-separator');
-        element.createChild('div', 'locations-list-text').textContent = String(location.long);
+        const long = element.createChild('div', 'locations-list-text');
+        long.textContent = String(location.long);
+        long.role = 'cell';
         element.createChild('div', 'locations-list-separator');
-        element.createChild('div', 'locations-list-text').textContent = location.timezoneId;
+        const timezoneId = element.createChild('div', 'locations-list-text');
+        timezoneId.textContent = location.timezoneId;
+        timezoneId.role = 'cell';
         element.createChild('div', 'locations-list-separator');
-        element.createChild('div', 'locations-list-text').textContent = location.locale;
+        const locale = element.createChild('div', 'locations-list-text');
+        locale.textContent = location.locale;
+        locale.role = 'cell';
         return element;
     }
     removeItemRequested(item, index) {
@@ -181,7 +186,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
         location.lat = lat ? parseFloat(lat) : 0;
         const long = editor.control('long').value.trim();
         location.long = long ? parseFloat(long) : 0;
-        const timezoneId = editor.control('timezoneId').value.trim();
+        const timezoneId = editor.control('timezone-id').value.trim();
         location.timezoneId = timezoneId;
         const locale = editor.control('locale').value.trim();
         location.locale = locale;
@@ -196,7 +201,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
         editor.control('title').value = location.title;
         editor.control('lat').value = String(location.lat);
         editor.control('long').value = String(location.long);
-        editor.control('timezoneId').value = location.timezoneId;
+        editor.control('timezone-id').value = location.timezoneId;
         editor.control('locale').value = location.locale;
         return editor;
     }
@@ -229,7 +234,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox {
         cell.appendChild(editor.createInput('long', 'text', i18nString(UIStrings.longitude), longValidator));
         fields.createChild('div', 'locations-list-separator locations-list-separator-invisible');
         cell = fields.createChild('div', 'locations-list-text locations-input-container');
-        cell.appendChild(editor.createInput('timezoneId', 'text', i18nString(UIStrings.timezoneId), timezoneIdValidator));
+        cell.appendChild(editor.createInput('timezone-id', 'text', i18nString(UIStrings.timezoneId), timezoneIdValidator));
         fields.createChild('div', 'locations-list-separator locations-list-separator-invisible');
         cell = fields.createChild('div', 'locations-list-text locations-input-container');
         cell.appendChild(editor.createInput('locale', 'text', i18nString(UIStrings.locale), localeValidator));

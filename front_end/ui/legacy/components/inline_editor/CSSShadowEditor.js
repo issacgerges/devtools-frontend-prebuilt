@@ -4,29 +4,30 @@
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
-import { CSSLength } from './CSSShadowModel.js';
+import cssShadowEditorStyles from './cssShadowEditor.css.js';
 const UIStrings = {
     /**
-    *@description Text that refers to some types
-    */
+     *@description Text that refers to some types
+     */
     type: 'Type',
     /**
-    *@description Text in CSSShadow Editor of the inline editor in the Styles tab
-    */
+     *@description Text in CSSShadow Editor of the inline editor in the Styles tab
+     */
     xOffset: 'X offset',
     /**
-    *@description Text in CSSShadow Editor of the inline editor in the Styles tab
-    */
+     *@description Text in CSSShadow Editor of the inline editor in the Styles tab
+     */
     yOffset: 'Y offset',
     /**
-    * @description Text in CSSShadow Editor of the inline editor in the Styles tab. Noun which is a
-    * label for an input that allows the user to specify how blurred the box-shadow should be.
-    */
+     * @description Text in CSSShadow Editor of the inline editor in the Styles tab. Noun which is a
+     * label for an input that allows the user to specify how blurred the box-shadow should be.
+     */
     blur: 'Blur',
     /**
-    *@description Text in CSSShadow Editor of the inline editor in the Styles tab
-    */
+     *@description Text in CSSShadow Editor of the inline editor in the Styles tab
+     */
     spread: 'Spread',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/inline_editor/CSSShadowEditor.ts', UIStrings);
@@ -35,6 +36,37 @@ const maxRange = 20;
 const defaultUnit = 'px';
 const sliderThumbRadius = 6;
 const canvasSize = 88;
+const CSS_LENGTH_REGEX = (function () {
+    const number = '([+-]?(?:[0-9]*[.])?[0-9]+(?:[eE][+-]?[0-9]+)?)';
+    const unit = '(ch|cm|em|ex|in|mm|pc|pt|px|rem|vh|vmax|vmin|vw)';
+    const zero = '[+-]?(?:0*[.])?0+(?:[eE][+-]?[0-9]+)?';
+    return new RegExp(number + unit + '|' + zero, 'gi').source;
+})();
+export class CSSLength {
+    amount;
+    unit;
+    constructor(amount, unit) {
+        this.amount = amount;
+        this.unit = unit;
+    }
+    static parse(text) {
+        const lengthRegex = new RegExp('^(?:' + CSS_LENGTH_REGEX + ')$', 'i');
+        const match = text.match(lengthRegex);
+        if (!match) {
+            return null;
+        }
+        if (match.length > 2 && match[2]) {
+            return new CSSLength(parseFloat(match[1]), match[2]);
+        }
+        return CSSLength.zero();
+    }
+    static zero() {
+        return new CSSLength(0, '');
+    }
+    asCSSText() {
+        return this.amount + this.unit;
+    }
+}
 export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) {
     typeField;
     outsetButton;
@@ -54,8 +86,8 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
     changedElement;
     constructor() {
         super(true);
-        this.registerRequiredCSS('ui/legacy/components/inline_editor/cssShadowEditor.css');
         this.contentElement.tabIndex = 0;
+        this.contentElement.setAttribute('jslog', `${VisualLogging.dialog('cssShadowEditor').parent('mapped').track({ keydown: 'Enter|Escape' })}`);
         this.setDefaultFocusedElement(this.contentElement);
         this.typeField = this.contentElement.createChild('div', 'shadow-editor-field shadow-editor-flex-field');
         this.typeField.createChild('label', 'shadow-editor-label').textContent = i18nString(UIStrings.type);
@@ -66,10 +98,15 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         this.insetButton.textContent = i18n.i18n.lockedString('Inset');
         this.insetButton.addEventListener('click', this.onButtonClick.bind(this), false);
         const xField = this.contentElement.createChild('div', 'shadow-editor-field');
-        this.xInput = this.createTextInput(xField, i18nString(UIStrings.xOffset));
+        this.xInput = this.createTextInput(xField, i18nString(UIStrings.xOffset), 'x-offset');
         const yField = this.contentElement.createChild('div', 'shadow-editor-field');
-        this.yInput = this.createTextInput(yField, i18nString(UIStrings.yOffset));
+        this.yInput = this.createTextInput(yField, i18nString(UIStrings.yOffset), 'y-offset');
         this.xySlider = xField.createChild('canvas', 'shadow-editor-2D-slider');
+        this.xySlider.setAttribute('jslog', `${VisualLogging.slider('xy').track({
+            click: true,
+            drag: true,
+            keydown: 'ArrowUp|ArrowDown|ArrowLeft|ArrowRight',
+        })}`);
         this.xySlider.width = canvasSize;
         this.xySlider.height = canvasSize;
         this.xySlider.tabIndex = -1;
@@ -79,13 +116,13 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         this.xySlider.addEventListener('keydown', this.onCanvasArrowKey.bind(this), false);
         this.xySlider.addEventListener('blur', this.onCanvasBlur.bind(this), false);
         const blurField = this.contentElement.createChild('div', 'shadow-editor-field shadow-editor-flex-field shadow-editor-blur-field');
-        this.blurInput = this.createTextInput(blurField, i18nString(UIStrings.blur));
-        this.blurSlider = this.createSlider(blurField);
+        this.blurInput = this.createTextInput(blurField, i18nString(UIStrings.blur), 'blur');
+        this.blurSlider = this.createSlider(blurField, 'blur');
         this.spreadField = this.contentElement.createChild('div', 'shadow-editor-field shadow-editor-flex-field');
-        this.spreadInput = this.createTextInput(this.spreadField, i18nString(UIStrings.spread));
-        this.spreadSlider = this.createSlider(this.spreadField);
+        this.spreadInput = this.createTextInput(this.spreadField, i18nString(UIStrings.spread), 'spread');
+        this.spreadSlider = this.createSlider(this.spreadField, 'spread');
     }
-    createTextInput(field, propertyName) {
+    createTextInput(field, propertyName, jslogContext) {
         const label = field.createChild('label', 'shadow-editor-label');
         label.textContent = propertyName;
         label.setAttribute('for', propertyName);
@@ -96,15 +133,18 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         textInput.addEventListener('wheel', this.handleValueModification.bind(this), false);
         textInput.addEventListener('input', this.onTextInput.bind(this), false);
         textInput.addEventListener('blur', this.onTextBlur.bind(this), false);
+        textInput.setAttribute('jslog', `${VisualLogging.value().track({ change: true, keydown: 'ArrowUp|ArrowDown' }).context(jslogContext)}`);
         return textInput;
     }
-    createSlider(field) {
+    createSlider(field, jslogContext) {
         const slider = UI.UIUtils.createSlider(0, maxRange, -1);
         slider.addEventListener('input', this.onSliderInput.bind(this), false);
+        slider.setAttribute('jslog', `${VisualLogging.slider().track({ click: true, drag: true }).context(jslogContext)}`);
         field.appendChild(slider);
-        return /** @type {!HTMLInputElement} */ slider;
+        return slider;
     }
     wasShown() {
+        this.registerCSSFiles([cssShadowEditorStyles]);
         this.updateUI();
     }
     setModel(model) {
@@ -174,7 +214,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         }
         this.model.setInset(insetClicked);
         this.updateButtons();
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     handleValueModification(event) {
         const target = event.currentTarget;
@@ -225,7 +265,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
             this.model.setSpreadRadius(length);
             this.spreadSlider.value = length.amount.toString();
         }
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     onTextBlur() {
         if (!this.changedElement) {
@@ -264,7 +304,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
             this.spreadSlider.value = length.amount.toString();
         }
         this.changedElement = null;
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     onSliderInput(event) {
         if (event.currentTarget === this.blurSlider) {
@@ -277,12 +317,12 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
             this.spreadInput.value = this.model.spreadRadius().asCSSText();
             this.spreadInput.classList.remove('invalid');
         }
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     dragStart(event) {
         this.xySlider.focus();
         this.updateCanvas(true);
-        this.canvasOrigin = new UI.Geometry.Point(this.xySlider.totalOffsetLeft() + this.halfCanvasSize, this.xySlider.totalOffsetTop() + this.halfCanvasSize);
+        this.canvasOrigin = new UI.Geometry.Point(this.xySlider.getBoundingClientRect().left + this.halfCanvasSize, this.xySlider.getBoundingClientRect().top + this.halfCanvasSize);
         const clickedPoint = new UI.Geometry.Point(event.x - this.canvasOrigin.x, event.y - this.canvasOrigin.y);
         const thumbPoint = this.sliderThumbPosition();
         if (clickedPoint.distanceTo(thumbPoint) >= sliderThumbRadius) {
@@ -315,7 +355,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         this.xInput.classList.remove('invalid');
         this.yInput.classList.remove('invalid');
         this.updateCanvas(true);
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     onCanvasBlur() {
         this.updateCanvas(false);
@@ -361,7 +401,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
             this.yInput.classList.remove('invalid');
         }
         this.updateCanvas(true);
-        this.dispatchEventToListeners(Events.ShadowChanged, this.model);
+        this.dispatchEventToListeners("ShadowChanged" /* Events.ShadowChanged */, this.model);
     }
     constrainPoint(point, max) {
         if (Math.abs(point.x) <= max && Math.abs(point.y) <= max) {
@@ -392,10 +432,4 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.V
         return this.constrainPoint(new UI.Geometry.Point(x, y), this.innerCanvasSize);
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["ShadowChanged"] = "ShadowChanged";
-})(Events || (Events = {}));
 //# sourceMappingURL=CSSShadowEditor.js.map

@@ -1,6 +1,6 @@
 {
   "name": "devtools-frontend-prebuilt",
-  "version": "1.2.0-beta1",
+  "version": "1.2.0-beta2",
   "description": "A prebuilt version of devtools-frontend so you (I) don't have to muck about with depot_tools",
   "main": "index.js",
   "scripts": {

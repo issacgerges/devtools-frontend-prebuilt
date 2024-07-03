@@ -20,7 +20,8 @@ const fs = require('fs-extra');
       filter: (src, dest) => {
         const isJunk = src.endsWith(".map") || src.endsWith(".ts")
         const isNonEngishLocale = src.includes('/locales/') && !src.endsWith('en-US.json');
-        return !(isJunk || isNonEngishLocale);
+        const isFixture = src.includes('/fixtures/');
+        return !(isJunk || isNonEngishLocale || isFixture);
       }
     })
   } catch (e) {

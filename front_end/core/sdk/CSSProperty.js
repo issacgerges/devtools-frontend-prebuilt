@@ -6,6 +6,7 @@ import * as Common from '../common/common.js';
 import * as HostModule from '../host/host.js';
 import * as Platform from '../platform/platform.js';
 import { cssMetadata, GridAreaRowRegex } from './CSSMetadata.js';
+import { stripComments } from './CSSPropertyParser.js';
 export class CSSProperty {
     ownerStyle;
     index;
@@ -20,9 +21,9 @@ export class CSSProperty {
     #active;
     #nameRangeInternal;
     #valueRangeInternal;
-    #invalidProperty;
     #invalidString;
-    constructor(ownerStyle, index, name, value, important, disabled, parsedOk, implicit, text, range) {
+    #longhandProperties = [];
+    constructor(ownerStyle, index, name, value, important, disabled, parsedOk, implicit, text, range, longhandProperties) {
         this.ownerStyle = ownerStyle;
         this.index = index;
         this.name = name;
@@ -36,7 +37,21 @@ export class CSSProperty {
         this.#active = true;
         this.#nameRangeInternal = null;
         this.#valueRangeInternal = null;
-        this.#invalidProperty = null;
+        if (longhandProperties && longhandProperties.length > 0) {
+            for (const property of longhandProperties) {
+                this.#longhandProperties.push(new CSSProperty(ownerStyle, ++index, property.name, property.value, important, disabled, parsedOk, true));
+            }
+        }
+        else {
+            // Blink would not parse shorthands containing 'var()' functions:
+            // https://drafts.csswg.org/css-variables/#variables-in-shorthands).
+            // Therefore we manually check if the current property is a shorthand,
+            // and fills its longhand components with empty values.
+            const longhandNames = cssMetadata().getLonghands(name);
+            for (const longhandName of longhandNames || []) {
+                this.#longhandProperties.push(new CSSProperty(ownerStyle, ++index, longhandName, '', important, disabled, parsedOk, true));
+            }
+        }
     }
     static parsePayload(ownerStyle, index, payload) {
         // The following default field values are used in the payload:
@@ -44,7 +59,7 @@ export class CSSProperty {
         // parsedOk: true
         // implicit: false
         // disabled: false
-        const result = new CSSProperty(ownerStyle, index, payload.name, payload.value, payload.important || false, payload.disabled || false, ('parsedOk' in payload) ? Boolean(payload.parsedOk) : true, Boolean(payload.implicit), payload.text, payload.range);
+        const result = new CSSProperty(ownerStyle, index, payload.name, payload.value, payload.important || false, payload.disabled || false, ('parsedOk' in payload) ? Boolean(payload.parsedOk) : true, Boolean(payload.implicit), payload.text, payload.range, payload.longhandProperties);
         return result;
     }
     ensureRanges() {
@@ -112,36 +127,38 @@ export class CSSProperty {
     }
     async setText(propertyText, majorChange, overwrite) {
         if (!this.ownerStyle) {
-            return Promise.reject(new Error('No ownerStyle for property'));
+            throw new Error('No ownerStyle for property');
         }
         if (!this.ownerStyle.styleSheetId) {
-            return Promise.reject(new Error('No owner style id'));
+            throw new Error('No owner style id');
         }
         if (!this.range || !this.ownerStyle.range) {
-            return Promise.reject(new Error('Style not editable'));
+            throw new Error('Style not editable');
         }
         if (majorChange) {
             HostModule.userMetrics.actionTaken(HostModule.UserMetrics.Action.StyleRuleEdited);
+            if (this.ownerStyle.parentRule?.isKeyframeRule()) {
+                HostModule.userMetrics.actionTaken(HostModule.UserMetrics.Action.StylePropertyInsideKeyframeEdited);
+            }
             if (this.name.startsWith('--')) {
                 HostModule.userMetrics.actionTaken(HostModule.UserMetrics.Action.CustomPropertyEdited);
             }
         }
         if (overwrite && propertyText === this.propertyText) {
             this.ownerStyle.cssModel().domModel().markUndoableState(!majorChange);
-            return Promise.resolve(true);
+            return true;
         }
         const range = this.range.relativeTo(this.ownerStyle.range.startLine, this.ownerStyle.range.startColumn);
         const indentation = this.ownerStyle.cssText ?
             this.detectIndentation(this.ownerStyle.cssText) :
-            Common.Settings.Settings.instance().moduleSetting('textEditorIndent').get();
+            Common.Settings.Settings.instance().moduleSetting('text-editor-indent').get();
         const endIndentation = this.ownerStyle.cssText ? indentation.substring(0, this.ownerStyle.range.endColumn) : '';
         const text = new TextUtils.Text.Text(this.ownerStyle.cssText || '');
         const newStyleText = text.replaceRange(range, Platform.StringUtilities.sprintf(';%s;', propertyText));
-        const tokenizerFactory = TextUtils.CodeMirrorUtils.TokenizerFactory.instance();
-        const styleText = CSSProperty.formatStyle(newStyleText, indentation, endIndentation, tokenizerFactory);
+        const styleText = await CSSProperty.formatStyle(newStyleText, indentation, endIndentation);
         return this.ownerStyle.setText(styleText, majorChange);
     }
-    static formatStyle(styleText, indentation, endIndentation, tokenizerFactory, codeMirrorMode) {
+    static async formatStyle(styleText, indentation, endIndentation) {
         const doubleIndent = indentation.substring(endIndentation.length) + indentation;
         if (indentation) {
             indentation = '\n' + indentation;
@@ -151,21 +168,21 @@ export class CSSProperty {
         let propertyText = '';
         let insideProperty = false;
         let needsSemi = false;
-        const tokenize = tokenizerFactory.createTokenizer('text/css', codeMirrorMode);
-        tokenize('*{' + styleText + '}', processToken);
+        const tokenize = TextUtils.CodeMirrorUtils.createCssTokenizer();
+        await tokenize('*{' + styleText + '}', processToken);
         if (insideProperty) {
             result += propertyText;
         }
-        result = result.substring(2, result.length - 1).trimRight();
+        result = result.substring(2, result.length - 1).trimEnd();
         return result + (indentation ? '\n' + endIndentation : '');
-        function processToken(token, tokenType, _column, _newColumn) {
+        function processToken(token, tokenType) {
             if (!insideProperty) {
-                const disabledProperty = tokenType && tokenType.includes('css-comment') && isDisabledProperty(token);
-                const isPropertyStart = tokenType &&
-                    (tokenType.includes('css-string') || tokenType.includes('css-meta') || tokenType.includes('css-property') ||
-                        tokenType.includes('css-variable-2'));
+                const disabledProperty = tokenType?.includes('comment') && isDisabledProperty(token);
+                const isPropertyStart = (tokenType?.includes('def') || tokenType?.includes('string') || tokenType?.includes('meta') ||
+                    tokenType?.includes('property') ||
+                    (tokenType?.includes('variableName') && tokenType !== ('variableName.function')));
                 if (disabledProperty) {
-                    result = result.trimRight() + indentation + token;
+                    result = result.trimEnd() + indentation + token;
                 }
                 else if (isPropertyStart) {
                     insideProperty = true;
@@ -173,7 +190,7 @@ export class CSSProperty {
                 }
                 else if (token !== ';' || needsSemi) {
                     result += token;
-                    if (token.trim() && !(tokenType && tokenType.includes('css-comment'))) {
+                    if (token.trim() && !(tokenType?.includes('comment'))) {
                         needsSemi = token !== ';';
                     }
                 }
@@ -189,27 +206,23 @@ export class CSSProperty {
                 // implementation takes special care to restore a single
                 // whitespace token in this edge case. https://crbug.com/1071296
                 const trimmedPropertyText = propertyText.trim();
-                result = result.trimRight() + indentation + trimmedPropertyText +
-                    (trimmedPropertyText.endsWith(':') ? ' ' : '') + ';';
+                result = result.trimEnd() + indentation + trimmedPropertyText + (trimmedPropertyText.endsWith(':') ? ' ' : '') +
+                    token;
                 needsSemi = false;
                 insideProperty = false;
                 propertyName = '';
-                if (token === '}') {
-                    result += '}';
+                return;
+            }
+            if (cssMetadata().isGridAreaDefiningProperty(propertyName)) {
+                const rowResult = GridAreaRowRegex.exec(token);
+                if (rowResult && rowResult.index === 0 && !propertyText.trimEnd().endsWith(']')) {
+                    propertyText = propertyText.trimEnd() + '\n' + doubleIndent;
                 }
             }
-            else {
-                if (cssMetadata().isGridAreaDefiningProperty(propertyName)) {
-                    const rowResult = GridAreaRowRegex.exec(token);
-                    if (rowResult && rowResult.index === 0 && !propertyText.trimRight().endsWith(']')) {
-                        propertyText = propertyText.trimRight() + '\n' + doubleIndent;
-                    }
-                }
-                if (!propertyName && token === ':') {
-                    propertyName = propertyText;
-                }
-                propertyText += token;
+            if (!propertyName && token === ':') {
+                propertyName = propertyText;
             }
+            propertyText += token;
         }
         function isDisabledProperty(text) {
             const colon = text.indexOf(':');
@@ -229,20 +242,35 @@ export class CSSProperty {
     }
     setValue(newValue, majorChange, overwrite, userCallback) {
         const text = this.name + ': ' + newValue + (this.important ? ' !important' : '') + ';';
-        this.setText(text, majorChange, overwrite).then(userCallback);
+        void this.setText(text, majorChange, overwrite).then(userCallback);
     }
-    setDisabled(disabled) {
+    async setDisabled(disabled) {
         if (!this.ownerStyle) {
-            return Promise.resolve(false);
+            return false;
         }
         if (disabled === this.disabled) {
-            return Promise.resolve(true);
+            return true;
         }
         if (!this.text) {
-            return Promise.resolve(true);
+            return true;
         }
         const propertyText = this.text.trim();
-        const text = disabled ? '/* ' + propertyText + ' */' : this.text.substring(2, propertyText.length - 2).trim();
+        // Ensure that if we try to enable/disable a property that has no semicolon (which is only legal
+        // in the last position of a css rule), we add it. This ensures that if we then later try
+        // to re-enable/-disable the rule, we end up with legal syntax (if the user adds more properties
+        // after the disabled rule).
+        const appendSemicolonIfMissing = (propertyText) => propertyText + (propertyText.endsWith(';') ? '' : ';');
+        let text;
+        if (disabled) {
+            // We remove comments before wrapping comment tags around propertyText, because otherwise it will
+            // create an unmatched trailing `*/`, making the text invalid. This will result in disabled
+            // CSSProperty losing its original comments, but since escaping comments will result in the parser
+            // to completely ignore and then lose this declaration, this is the best compromise so far.
+            text = '/* ' + appendSemicolonIfMissing(stripComments(propertyText)) + ' */';
+        }
+        else {
+            text = appendSemicolonIfMissing(this.text.substring(2, propertyText.length - 2).trim());
+        }
         return this.setText(text, true, true);
     }
     /**
@@ -256,6 +284,9 @@ export class CSSProperty {
      */
     getInvalidStringForInvalidProperty() {
         return this.#invalidString;
+    }
+    getLonghandProperties() {
+        return this.#longhandProperties;
     }
 }
 //# sourceMappingURL=CSSProperty.js.map

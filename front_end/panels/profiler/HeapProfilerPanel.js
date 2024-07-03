@@ -3,14 +3,13 @@
 // found in the LICENSE file.
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import { ProfilesPanel } from './ProfilesPanel.js';
 import { instance } from './ProfileTypeRegistry.js';
 const UIStrings = {
     /**
-    *@description A context menu item in the Heap Profiler Panel of a profiler tool
-    */
+     *@description A context menu item in the Heap Profiler Panel of a profiler tool
+     */
     revealInSummaryView: 'Reveal in Summary view',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/profiler/HeapProfilerPanel.ts', UIStrings);
@@ -20,7 +19,7 @@ export class HeapProfilerPanel extends ProfilesPanel {
     constructor() {
         const registry = instance;
         const profileTypes = [registry.heapSnapshotProfileType, registry.trackingHeapSnapshotProfileType, registry.samplingHeapProfileType];
-        super('heap_profiler', profileTypes, 'profiler.heap-toggle-recording');
+        super('heap-profiler', profileTypes, 'profiler.heap-toggle-recording');
     }
     static instance() {
         if (!heapProfilerPanelInstance) {
@@ -28,14 +27,10 @@ export class HeapProfilerPanel extends ProfilesPanel {
         }
         return heapProfilerPanelInstance;
     }
-    appendApplicableItems(event, contextMenu, target) {
-        if (!(target instanceof SDK.RemoteObject.RemoteObject)) {
-            return;
-        }
+    appendApplicableItems(_event, contextMenu, object) {
         if (!this.isShowing()) {
             return;
         }
-        const object = target;
         if (!object.objectId) {
             return;
         }
@@ -49,13 +44,13 @@ export class HeapProfilerPanel extends ProfilesPanel {
             return;
         }
         function revealInView(viewName) {
-            heapProfilerModel.snapshotObjectIdForObjectId(objectId).then(result => {
+            void heapProfilerModel.snapshotObjectIdForObjectId(objectId).then(result => {
                 if (this.isShowing() && result) {
                     this.showObject(result, viewName);
                 }
             });
         }
-        contextMenu.revealSection().appendItem(i18nString(UIStrings.revealInSummaryView), revealInView.bind(this, 'Summary'));
+        contextMenu.revealSection().appendItem(i18nString(UIStrings.revealInSummaryView), revealInView.bind(this, 'Summary'), { jslogContext: 'reveal-in-summary' });
     }
     handleAction(_context, _actionId) {
         const panel = UI.Context.Context.instance().flavor(HeapProfilerPanel);
@@ -69,10 +64,11 @@ export class HeapProfilerPanel extends ProfilesPanel {
         super.wasShown();
         UI.Context.Context.instance().setFlavor(HeapProfilerPanel, this);
         // Record the memory tool load time.
-        Host.userMetrics.panelLoaded('heap_profiler', 'DevTools.Launch.HeapProfiler');
+        Host.userMetrics.panelLoaded('heap-profiler', 'DevTools.Launch.HeapProfiler');
     }
     willHide() {
         UI.Context.Context.instance().setFlavor(HeapProfilerPanel, null);
+        super.willHide();
     }
     showObject(snapshotObjectId, perspectiveName) {
         const registry = instance;
@@ -83,7 +79,7 @@ export class HeapProfilerPanel extends ProfilesPanel {
             if (profile.maxJSObjectId >= parseInt(snapshotObjectId, 10)) {
                 this.showProfile(profile);
                 const view = this.viewForProfile(profile);
-                view.selectLiveObject(perspectiveName, snapshotObjectId);
+                void view.selectLiveObject(perspectiveName, snapshotObjectId);
                 break;
             }
         }

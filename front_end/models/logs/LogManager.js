@@ -18,7 +18,7 @@ export class LogManager {
     }
     modelAdded(logModel) {
         const eventListeners = [];
-        eventListeners.push(logModel.addEventListener(SDK.LogModel.Events.EntryAdded, this.logEntryAdded, this));
+        eventListeners.push(logModel.addEventListener("EntryAdded" /* SDK.LogModel.Events.EntryAdded */, this.logEntryAdded, this));
         modelToEventListeners.set(logModel, eventListeners);
     }
     modelRemoved(logModel) {
@@ -38,12 +38,14 @@ export class LogManager {
             timestamp: entry.timestamp,
             workerId: entry.workerId,
             category: entry.category,
+            affectedResources: entry.networkRequestId ? { requestId: entry.networkRequestId } : undefined,
         };
         const consoleMessage = new SDK.ConsoleModel.ConsoleMessage(target.model(SDK.RuntimeModel.RuntimeModel), entry.source, entry.level, entry.text, details);
         if (entry.networkRequestId) {
             NetworkLog.instance().associateConsoleMessageWithRequest(consoleMessage, entry.networkRequestId);
         }
-        if (consoleMessage.source === "worker" /* Worker */) {
+        const consoleModel = target.model(SDK.ConsoleModel.ConsoleModel);
+        if (consoleMessage.source === "worker" /* Protocol.Log.LogEntrySource.Worker */) {
             const workerId = consoleMessage.workerId || '';
             // We have a copy of worker messages reported through the page, so that
             // user can see messages from the worker which has been already destroyed.
@@ -52,14 +54,14 @@ export class LogManager {
             if (SDK.TargetManager.TargetManager.instance().targetById(workerId)) {
                 return;
             }
-            setTimeout(() => {
+            window.setTimeout(() => {
                 if (!SDK.TargetManager.TargetManager.instance().targetById(workerId)) {
-                    SDK.ConsoleModel.ConsoleModel.instance().addMessage(consoleMessage);
+                    consoleModel?.addMessage(consoleMessage);
                 }
             }, 1000);
         }
         else {
-            SDK.ConsoleModel.ConsoleModel.instance().addMessage(consoleMessage);
+            consoleModel?.addMessage(consoleMessage);
         }
     }
 }

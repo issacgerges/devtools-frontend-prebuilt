@@ -4,40 +4,42 @@
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import { ConsoleFilter, FilterType } from './ConsoleFilter.js';
 import consoleSidebarStyles from './consoleSidebar.css.js';
 const UIStrings = {
     /**
-    * @description Filter name in Console Sidebar of the Console panel. This is shown when we fail to
-    * parse a URL when trying to display console messages from each URL separately. This might be
-    * because the console message does not come from any particular URL. This should be translated as
-    * a term that indicates 'not one of the other URLs listed here'.
-    */
+     * @description Filter name in Console Sidebar of the Console panel. This is shown when we fail to
+     * parse a URL when trying to display console messages from each URL separately. This might be
+     * because the console message does not come from any particular URL. This should be translated as
+     * a term that indicates 'not one of the other URLs listed here'.
+     */
     other: '<other>',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many user messages exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many user messages exist.
+     */
     dUserMessages: '{n, plural, =0 {No user messages} =1 {# user message} other {# user messages}}',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many messages exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many messages exist.
+     */
     dMessages: '{n, plural, =0 {No messages} =1 {# message} other {# messages}}',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many errors exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many errors exist.
+     */
     dErrors: '{n, plural, =0 {No errors} =1 {# error} other {# errors}}',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many warnings exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many warnings exist.
+     */
     dWarnings: '{n, plural, =0 {No warnings} =1 {# warning} other {# warnings}}',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many info messages exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many info messages exist.
+     */
     dInfo: '{n, plural, =0 {No info} =1 {# info} other {# info}}',
     /**
-    *@description Text in Console Sidebar of the Console panel to show how many verbose messages exist.
-    */
+     *@description Text in Console Sidebar of the Console panel to show how many verbose messages exist.
+     */
     dVerbose: '{n, plural, =0 {No verbose} =1 {# verbose} other {# verbose}}',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/console/ConsoleSidebar.ts', UIStrings);
@@ -51,25 +53,23 @@ export class ConsoleSidebar extends Common.ObjectWrapper.eventMixin(UI.Widget.VB
         this.setMinimumSize(125, 0);
         this.tree = new UI.TreeOutline.TreeOutlineInShadow();
         this.tree.addEventListener(UI.TreeOutline.Events.ElementSelected, this.selectionChanged.bind(this));
+        this.contentElement.setAttribute('jslog', `${VisualLogging.pane('sidebar').track({ resize: true })}`);
         this.contentElement.appendChild(this.tree.element);
         this.selectedTreeElement = null;
         this.treeElements = [];
-        const selectedFilterSetting = 
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // @ts-expect-error
-        Common.Settings.Settings.instance().createSetting('console.sidebarSelectedFilter', null);
+        const selectedFilterSetting = Common.Settings.Settings.instance().createSetting('console.sidebar-selected-filter', null);
         const consoleAPIParsedFilters = [{
                 key: FilterType.Source,
                 text: SDK.ConsoleModel.FrontendMessageSource.ConsoleAPI,
                 negative: false,
                 regex: undefined,
             }];
-        this.appendGroup("message" /* All */, [], ConsoleFilter.allLevelsFilterValue(), UI.Icon.Icon.create('mediumicon-list'), selectedFilterSetting);
-        this.appendGroup("user message" /* ConsoleAPI */, consoleAPIParsedFilters, ConsoleFilter.allLevelsFilterValue(), UI.Icon.Icon.create('mediumicon-account-circle'), selectedFilterSetting);
-        this.appendGroup("error" /* Error */, [], ConsoleFilter.singleLevelMask("error" /* Error */), UI.Icon.Icon.create('mediumicon-error-circle'), selectedFilterSetting);
-        this.appendGroup("warning" /* Warning */, [], ConsoleFilter.singleLevelMask("warning" /* Warning */), UI.Icon.Icon.create('mediumicon-warning-triangle'), selectedFilterSetting);
-        this.appendGroup("info" /* Info */, [], ConsoleFilter.singleLevelMask("info" /* Info */), UI.Icon.Icon.create('mediumicon-info-circle'), selectedFilterSetting);
-        this.appendGroup("verbose" /* Verbose */, [], ConsoleFilter.singleLevelMask("verbose" /* Verbose */), UI.Icon.Icon.create('mediumicon-bug'), selectedFilterSetting);
+        this.appendGroup("message" /* GroupName.All */, [], ConsoleFilter.allLevelsFilterValue(), IconButton.Icon.create('list'), selectedFilterSetting);
+        this.appendGroup("user message" /* GroupName.ConsoleAPI */, consoleAPIParsedFilters, ConsoleFilter.allLevelsFilterValue(), IconButton.Icon.create('profile'), selectedFilterSetting);
+        this.appendGroup("error" /* GroupName.Error */, [], ConsoleFilter.singleLevelMask("error" /* Protocol.Log.LogEntryLevel.Error */), IconButton.Icon.create('cross-circle'), selectedFilterSetting);
+        this.appendGroup("warning" /* GroupName.Warning */, [], ConsoleFilter.singleLevelMask("warning" /* Protocol.Log.LogEntryLevel.Warning */), IconButton.Icon.create('warning'), selectedFilterSetting);
+        this.appendGroup("info" /* GroupName.Info */, [], ConsoleFilter.singleLevelMask("info" /* Protocol.Log.LogEntryLevel.Info */), IconButton.Icon.create('info'), selectedFilterSetting);
+        this.appendGroup("verbose" /* GroupName.Verbose */, [], ConsoleFilter.singleLevelMask("verbose" /* Protocol.Log.LogEntryLevel.Verbose */), IconButton.Icon.create('bug'), selectedFilterSetting);
         const selectedTreeElementName = selectedFilterSetting.get();
         const defaultTreeElement = this.treeElements.find(x => x.name() === selectedTreeElementName) || this.treeElements[0];
         defaultTreeElement.select();
@@ -98,7 +98,7 @@ export class ConsoleSidebar extends Common.ObjectWrapper.eventMixin(UI.Widget.VB
     }
     selectionChanged(event) {
         this.selectedTreeElement = event.data;
-        this.dispatchEventToListeners("FilterSelected" /* FilterSelected */);
+        this.dispatchEventToListeners("FilterSelected" /* Events.FilterSelected */);
     }
     wasShown() {
         super.wasShown();
@@ -121,8 +121,8 @@ export class URLGroupTreeElement extends ConsoleSidebarTreeElement {
     constructor(filter) {
         super(filter.name, filter);
         this.countElement = this.listItemElement.createChild('span', 'count');
-        const leadingIcons = [UI.Icon.Icon.create('largeicon-navigator-file')];
-        this.setLeadingIcons(leadingIcons);
+        const icon = IconButton.Icon.create('document');
+        this.setLeadingIcons([icon]);
         this.messageCount = 0;
     }
     incrementAndUpdateCounter() {
@@ -136,12 +136,12 @@ export class URLGroupTreeElement extends ConsoleSidebarTreeElement {
  * construct a filter or get a new message.
  */
 const stringForFilterSidebarItemMap = new Map([
-    ["user message" /* ConsoleAPI */, UIStrings.dUserMessages],
-    ["message" /* All */, UIStrings.dMessages],
-    ["error" /* Error */, UIStrings.dErrors],
-    ["warning" /* Warning */, UIStrings.dWarnings],
-    ["info" /* Info */, UIStrings.dInfo],
-    ["verbose" /* Verbose */, UIStrings.dVerbose],
+    ["user message" /* GroupName.ConsoleAPI */, UIStrings.dUserMessages],
+    ["message" /* GroupName.All */, UIStrings.dMessages],
+    ["error" /* GroupName.Error */, UIStrings.dErrors],
+    ["warning" /* GroupName.Warning */, UIStrings.dWarnings],
+    ["info" /* GroupName.Info */, UIStrings.dInfo],
+    ["verbose" /* GroupName.Verbose */, UIStrings.dVerbose],
 ]);
 export class FilterTreeElement extends ConsoleSidebarTreeElement {
     selectedFilterSetting;
