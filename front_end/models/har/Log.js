@@ -113,6 +113,9 @@ export class Entry {
             if (initiator.url !== undefined) {
                 exportedInitiator.url = initiator.url;
             }
+            if (initiator.requestId !== undefined) {
+                exportedInitiator.requestId = initiator.requestId;
+            }
             if (initiator.lineNumber !== undefined) {
                 exportedInitiator.lineNumber = initiator.lineNumber;
             }
@@ -177,7 +180,7 @@ export class Entry {
             httpVersion: this.request.requestHttpVersion(),
             headers: this.request.requestHeaders(),
             queryString: this.buildParameters(this.request.queryParameters || []),
-            cookies: this.buildCookies(this.request.includedRequestCookies()),
+            cookies: this.buildCookies(this.request.includedRequestCookies().map(includedRequestCookie => includedRequestCookie.cookie)),
             headersSize: headersText ? headersText.length : -1,
             bodySize: await this.requestBodySize(),
             postData: undefined,
@@ -312,7 +315,7 @@ export class Entry {
         return parameters.slice();
     }
     buildRequestURL(url) {
-        return url.split('#', 2)[0];
+        return Common.ParsedURL.ParsedURL.split(url, '#', 2)[0];
     }
     buildCookies(cookies) {
         return cookies.map(this.buildCookie.bind(this));
@@ -327,12 +330,19 @@ export class Entry {
             httpOnly: cookie.httpOnly(),
             secure: cookie.secure(),
             sameSite: undefined,
+            partitionKey: undefined,
         };
         if (cookie.sameSite()) {
             c.sameSite = cookie.sameSite();
         }
         else {
             delete c.sameSite;
+        }
+        if (cookie.partitionKey()) {
+            c.partitionKey = cookie.partitionKey();
+        }
+        else {
+            delete c.partitionKey;
         }
         return c;
     }

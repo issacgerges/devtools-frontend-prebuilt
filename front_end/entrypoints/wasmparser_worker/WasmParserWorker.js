@@ -29,10 +29,7 @@
  */
 import * as Common from '../../core/common/common.js';
 import * as WasmParser from '../../third_party/wasmparser/wasmparser.js';
-export function dissambleWASM(params, 
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-postMessage) {
+export function dissambleWASM(params, postMessage) {
     try {
         const dataBuffer = Common.Base64.decode(params.content);
         let parser = new WasmParser.WasmParser.BinaryReader();
@@ -48,7 +45,6 @@ postMessage) {
         const lines = [];
         const offsets = [];
         const functionBodyOffsets = [];
-        const MAX_LINES = 1000 * 1000;
         let chunkSize = 128 * 1024;
         let buffer = new Uint8Array(chunkSize);
         let pendingSize = 0;
@@ -79,14 +75,6 @@ postMessage) {
             for (const functionBodyOffset of result.functionBodyOffsets) {
                 functionBodyOffsets.push(functionBodyOffset);
             }
-            if (lines.length > MAX_LINES) {
-                lines[MAX_LINES] = ';; .... text is truncated due to size';
-                lines.splice(MAX_LINES + 1);
-                if (offsets) {
-                    offsets.splice(MAX_LINES + 1);
-                }
-                break;
-            }
             if (finished) {
                 break;
             }
@@ -103,10 +91,8 @@ postMessage) {
             const percentage = Math.floor((offsetInModule / data.length) * 100);
             postMessage({ event: 'progress', params: { percentage } });
         }
-        postMessage({ event: 'progress', params: { percentage: 99 } });
-        const source = lines.join('\n');
         postMessage({ event: 'progress', params: { percentage: 100 } });
-        postMessage({ method: 'disassemble', result: { source, offsets, functionBodyOffsets } });
+        postMessage({ method: 'disassemble', result: { lines, offsets, functionBodyOffsets } });
     }
     catch (error) {
         postMessage({ method: 'disassemble', error });

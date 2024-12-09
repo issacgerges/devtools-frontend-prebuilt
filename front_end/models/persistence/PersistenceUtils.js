@@ -4,6 +4,7 @@
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
+import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as Workspace from '../workspace/workspace.js';
@@ -12,14 +13,14 @@ import { NetworkPersistenceManager } from './NetworkPersistenceManager.js';
 import { Events, PersistenceImpl } from './PersistenceImpl.js';
 const UIStrings = {
     /**
-    *@description Text in Persistence Utils of the Workspace settings in Settings
-    *@example {example.url} PH1
-    */
+     *@description Text in Persistence Utils of the Workspace settings in Settings
+     *@example {example.url} PH1
+     */
     linkedToSourceMapS: 'Linked to source map: {PH1}',
     /**
-    *@description Text to show something is linked to another
-    *@example {example.url} PH1
-    */
+     *@description Text to show something is linked to another
+     *@example {example.url} PH1
+     */
     linkedToS: 'Linked to {PH1}',
 };
 const str_ = i18n.i18n.registerUIStrings('models/persistence/PersistenceUtils.ts', UIStrings);
@@ -41,22 +42,32 @@ export class PersistenceUtils {
     static iconForUISourceCode(uiSourceCode) {
         const binding = PersistenceImpl.instance().binding(uiSourceCode);
         if (binding) {
-            if (!binding.fileSystem.url().startsWith('file://')) {
+            if (!Common.ParsedURL.schemeIs(binding.fileSystem.url(), 'file:')) {
                 return null;
             }
-            const icon = UI.Icon.Icon.create('mediumicon-file-sync');
+            const icon = new IconButton.Icon.Icon();
+            icon.data = { iconName: 'document', color: 'var(--icon-default)', width: '16px', height: '16px' };
             UI.Tooltip.Tooltip.install(icon, PersistenceUtils.tooltipForUISourceCode(binding.network));
-            // TODO(allada) This will not work properly with dark theme.
             if (NetworkPersistenceManager.instance().project() === binding.fileSystem.project()) {
-                icon.style.filter = 'hue-rotate(160deg)';
+                icon.classList.add('dot', 'purple');
+            }
+            else {
+                icon.classList.add('dot', 'green');
             }
             return icon;
         }
         if (uiSourceCode.project().type() !== Workspace.Workspace.projectTypes.FileSystem ||
-            !uiSourceCode.url().startsWith('file://')) {
+            !Common.ParsedURL.schemeIs(uiSourceCode.url(), 'file:')) {
             return null;
         }
-        const icon = UI.Icon.Icon.create('mediumicon-file');
+        if (NetworkPersistenceManager.instance().isActiveHeaderOverrides(uiSourceCode)) {
+            const icon = new IconButton.Icon.Icon();
+            icon.data = { iconName: 'document', color: 'var(--icon-default)', width: '16px', height: '16px' };
+            icon.classList.add('dot', 'purple');
+            return icon;
+        }
+        const icon = new IconButton.Icon.Icon();
+        icon.data = { iconName: 'document', color: 'var(--icon-default)', width: '16px', height: '16px' };
         UI.Tooltip.Tooltip.install(icon, PersistenceUtils.tooltipForUISourceCode(uiSourceCode));
         return icon;
     }
@@ -69,7 +80,7 @@ export class LinkDecorator extends Common.ObjectWrapper.ObjectWrapper {
     }
     bindingChanged(event) {
         const binding = event.data;
-        this.dispatchEventToListeners(Components.Linkifier.LinkDecorator.Events.LinkIconChanged, binding.network);
+        this.dispatchEventToListeners("LinkIconChanged" /* Components.Linkifier.LinkDecorator.Events.LinkIconChanged */, binding.network);
     }
     linkIcon(uiSourceCode) {
         return PersistenceUtils.iconForUISourceCode(uiSourceCode);

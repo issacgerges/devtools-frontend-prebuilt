@@ -2,5 +2,6 @@
 .cipd/
 .gclient
 .gclient_entries
-devtools-frontend/
 node_modules/
+.gclient_previous_sync_commits
+.gcs_entries

@@ -28,26 +28,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 import * as Common from '../../core/common/common.js';
+import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import * as Platform from '../../core/platform/platform.js';
 import * as Settings from '../components/settings/settings.js';
+import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import { InspectorView } from './InspectorView.js';
 import { Tooltip } from './Tooltip.js';
-import { CheckboxLabel } from './UIUtils.js';
+import { CheckboxLabel, createOption } from './UIUtils.js';
 const UIStrings = {
     /**
-    *@description Note when a setting change will require the user to reload DevTools
-    */
+     *@description Note when a setting change will require the user to reload DevTools
+     */
     srequiresReload: '*Requires reload',
     /**
-    *@description Message to display if a setting change requires a reload of DevTools
-    */
+     *@description Message to display if a setting change requires a reload of DevTools
+     */
     oneOrMoreSettingsHaveChanged: 'One or more settings have changed which requires a reload to take effect.',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/SettingsUI.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export const createSettingCheckbox = function (name, setting, omitParagraphElement, tooltip) {
-    const label = CheckboxLabel.create(name);
+    const label = CheckboxLabel.create(name, undefined, undefined, setting.name);
     if (tooltip) {
         Tooltip.install(label, tooltip);
     }
@@ -72,10 +75,11 @@ const createSettingSelect = function (name, options, requiresReload, setting, su
         container.classList.add('chrome-select-label');
         label.createChild('p').textContent = subtitle;
     }
+    select.setAttribute('jslog', `${VisualLogging.dropDown().track({ change: true }).context(setting.name)}`);
     ARIAUtils.bindLabelToControl(label, select);
     for (const option of options) {
         if (option.text && typeof option.value === 'string') {
-            select.add(new Option(option.text, option.value));
+            select.add(createOption(option.text, option.value, Platform.StringUtilities.toKebabCase(option.value)));
         }
     }
     let reloadWarning = null;
@@ -83,6 +87,12 @@ const createSettingSelect = function (name, options, requiresReload, setting, su
         reloadWarning = container.createChild('span', 'reload-warning hidden');
         reloadWarning.textContent = i18nString(UIStrings.srequiresReload);
         ARIAUtils.markAsAlert(reloadWarning);
+    }
+    const { deprecation } = setting;
+    if (deprecation) {
+        const warning = new Settings.SettingDeprecationWarning.SettingDeprecationWarning();
+        warning.data = deprecation;
+        label.appendChild(warning);
     }
     setting.addChangeListener(settingChanged);
     settingChanged();
@@ -95,6 +105,7 @@ const createSettingSelect = function (name, options, requiresReload, setting, su
                 select.selectedIndex = i;
             }
         }
+        select.disabled = setting.disabled();
     }
     function selectChanged() {
         // Don't use event.target.value to avoid conversion of the value to string.
@@ -105,7 +116,7 @@ const createSettingSelect = function (name, options, requiresReload, setting, su
         }
     }
 };
-export const bindCheckbox = function (inputElement, setting) {
+export const bindCheckbox = function (inputElement, setting, metric) {
     const input = inputElement;
     function settingChanged() {
         if (input.checked !== setting.get()) {
@@ -118,27 +129,43 @@ export const bindCheckbox = function (inputElement, setting) {
         if (setting.get() !== input.checked) {
             setting.set(input.checked);
         }
+        if (setting.get() && metric?.enable) {
+            Host.userMetrics.actionTaken(metric.enable);
+        }
+        if (!setting.get() && metric?.disable) {
+            Host.userMetrics.actionTaken(metric.disable);
+        }
+        if (metric?.toggle) {
+            Host.userMetrics.actionTaken(metric.toggle);
+        }
     }
     input.addEventListener('change', inputChanged, false);
 };
 export const createCustomSetting = function (name, element) {
     const p = document.createElement('p');
-    const fieldsetElement = p.createChild('fieldset');
-    const label = fieldsetElement.createChild('label');
+    p.classList.add('settings-select');
+    const label = p.createChild('label');
     label.textContent = name;
     ARIAUtils.bindLabelToControl(label, element);
-    fieldsetElement.appendChild(element);
+    p.appendChild(element);
     return p;
 };
 export const createControlForSetting = function (setting, subtitle) {
     const uiTitle = setting.title();
     switch (setting.type()) {
-        case Common.Settings.SettingType.BOOLEAN: {
+        case "boolean" /* Common.Settings.SettingType.BOOLEAN */: {
             const component = new Settings.SettingCheckbox.SettingCheckbox();
-            component.data = { setting: setting };
+            component.data = {
+                setting: setting,
+            };
+            component.onchange = () => {
+                if (setting.reloadRequired()) {
+                    InspectorView.instance().displayReloadRequiredWarning(i18nString(UIStrings.oneOrMoreSettingsHaveChanged));
+                }
+            };
             return component;
         }
-        case Common.Settings.SettingType.ENUM:
+        case "enum" /* Common.Settings.SettingType.ENUM */:
             if (Array.isArray(setting.options())) {
                 return createSettingSelect(uiTitle, setting.options(), setting.reloadRequired(), setting, subtitle);
             }

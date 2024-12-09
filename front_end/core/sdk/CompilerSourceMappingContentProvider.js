@@ -32,10 +32,10 @@ import * as i18n from '../i18n/i18n.js';
 import { PageResourceLoader } from './PageResourceLoader.js';
 const UIStrings = {
     /**
-    *@description Error message when failing to fetch a resource referenced in a source map
-    *@example {https://example.com/sourcemap.map} PH1
-    *@example {An error occurred} PH2
-    */
+     *@description Error message when failing to fetch a resource referenced in a source map
+     *@example {https://example.com/sourcemap.map} PH1
+     *@example {An error occurred} PH2
+     */
     couldNotLoadContentForSS: 'Could not load content for {PH1} ({PH2})',
 };
 const str_ = i18n.i18n.registerUIStrings('core/sdk/CompilerSourceMappingContentProvider.ts', UIStrings);
@@ -49,33 +49,30 @@ export class CompilerSourceMappingContentProvider {
         this.#contentTypeInternal = contentType;
         this.#initiator = initiator;
     }
-    // TODO(crbug.com/1253323): Cast to RawPathString will be removed when migration to branded types is complete.
     contentURL() {
         return this.#sourceURL;
     }
     contentType() {
         return this.#contentTypeInternal;
     }
-    async contentEncoded() {
-        return false;
-    }
     async requestContent() {
+        const contentData = await this.requestContentData();
+        return TextUtils.ContentData.ContentData.asDeferredContent(contentData);
+    }
+    async requestContentData() {
         try {
             const { content } = await PageResourceLoader.instance().loadResource(this.#sourceURL, this.#initiator);
-            return { content, isEncoded: false };
+            return new TextUtils.ContentData.ContentData(content, /* isBase64=*/ false, this.#contentTypeInternal.canonicalMimeType());
         }
         catch (e) {
             const error = i18nString(UIStrings.couldNotLoadContentForSS, { PH1: this.#sourceURL, PH2: e.message });
             console.error(error);
-            return { content: null, error, isEncoded: false };
+            return { error };
         }
     }
     async searchInContent(query, caseSensitive, isRegex) {
-        const { content } = await this.requestContent();
-        if (typeof content !== 'string') {
-            return [];
-        }
-        return TextUtils.TextUtils.performSearchInContent(content, query, caseSensitive, isRegex);
+        const contentData = await this.requestContentData();
+        return TextUtils.TextUtils.performSearchInContentData(contentData, query, caseSensitive, isRegex);
     }
 }
 //# sourceMappingURL=CompilerSourceMappingContentProvider.js.map

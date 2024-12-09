@@ -5,105 +5,110 @@ import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import accessibilityNodeStyles from './accessibilityNode.css.js';
 import { AXAttributes, AXNativeSourceTypes, AXSourceTypes } from './AccessibilityStrings.js';
 import { AccessibilitySubPane } from './AccessibilitySubPane.js';
 const UIStrings = {
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     computedProperties: 'Computed Properties',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     noAccessibilityNode: 'No accessibility node',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     accessibilityNodeNotExposed: 'Accessibility node not exposed',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     invalidSource: 'Invalid source.',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     notSpecified: 'Not specified',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     noNodeWithThisId: 'No node with this ID.',
     /**
-    *@description Text which appears in the Accessibility Node View of the Accessibility panel when an element is covered by a modal/popup window
-    */
+     *@description Text which appears in the Accessibility Node View of the Accessibility panel when an element is covered by a modal/popup window
+     */
     elementIsHiddenBy: 'Element is hidden by active modal dialog:\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text which appears in the Accessibility Node View of the Accessibility panel when an element is hidden by another accessibility tree.
+     */
+    elementIsHiddenByChildTree: 'Element is hidden by child tree:\xA0',
+    /**
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     ancestorChildrenAreAll: 'Ancestor\'s children are all presentational:\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
+     *@description Reason element in Accessibility Node View of the Accessibility panel
     @example {aria-hidden} PH1
-    */
+     */
     elementIsPlaceholder: 'Element is {PH1}.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    *@example {aria-hidden} PH1
-    *@example {true} PH2
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     *@example {aria-hidden} PH1
+     *@example {true} PH2
+     */
     placeholderIsPlaceholderOnAncestor: '{PH1} is {PH2} on ancestor:\xA0',
     /**
-    *@description Text in Accessibility Node View of the Accessibility panel
-    */
+     *@description Text in Accessibility Node View of the Accessibility panel
+     */
     elementHasEmptyAltText: 'Element has empty alt text.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     noTextContent: 'No text content.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementIsInert: 'Element is `inert`.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementIsInAnInertSubTree: 'Element is in an `inert` subtree from\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementsInheritsPresentational: 'Element inherits presentational role from\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     partOfLabelElement: 'Part of label element:\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     labelFor: 'Label for\xA0',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementIsNotRendered: 'Element is not rendered.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementIsNotVisible: 'Element is not visible.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel. Indicates the
-    *ARIA role for this element, which will always have the format 'role=', but with different roles
-    *(which are not translated). https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
-    *@example {role=link} PH1
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel. Indicates the
+     *ARIA role for this element, which will always have the format 'role=', but with different roles
+     *(which are not translated). https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
+     *@example {role=link} PH1
+     */
     elementHasPlaceholder: 'Element has {PH1}.',
     /**
-    *@description Reason element in Accessibility Node View of the Accessibility panel
-    */
+     *@description Reason element in Accessibility Node View of the Accessibility panel
+     */
     elementIsPresentational: 'Element is presentational.',
     /**
-    * @description Reason element in Accessibility Node View of the Accessibility pane. Here
-    * 'interesting' is from the perspective of the accessibility engine in Chrome. A non-interesting
-    * element doesn't have any special accessibility considerations
-    */
+     * @description Reason element in Accessibility Node View of the Accessibility pane. Here
+     * 'interesting' is from the perspective of the accessibility engine in Chrome. A non-interesting
+     * element doesn't have any special accessibility considerations
+     */
     elementNotInteresting: 'Element not interesting for accessibility.',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/accessibility/AccessibilityNodeView.ts', UIStrings);
@@ -118,6 +123,7 @@ export class AXNodeSubPane extends AccessibilitySubPane {
         super(i18nString(UIStrings.computedProperties));
         this.axNode = null;
         this.contentElement.classList.add('ax-subpane');
+        this.contentElement.setAttribute('jslog', `${VisualLogging.section('computed-properties')}`);
         this.noNodeInfo = this.createInfo(i18nString(UIStrings.noAccessibilityNode));
         this.ignoredInfo = this.createInfo(i18nString(UIStrings.accessibilityNodeNotExposed), 'ax-ignored-info hidden');
         this.treeOutline = this.createTreeOutline();
@@ -174,12 +180,12 @@ export class AXNodeSubPane extends AccessibilitySubPane {
         const role = axNode.role();
         if (role) {
             const roleProperty = {
-                name: SDK.AccessibilityModel.CoreAxPropertyName.Role,
+                name: "role" /* SDK.AccessibilityModel.CoreAxPropertyName.Role */,
                 value: role,
             };
             addProperty(roleProperty);
         }
-        for (const property of /** @type {!Array.<!Protocol.Accessibility.AXProperty>} */ axNode.properties()) {
+        for (const property of axNode.properties()) {
             addProperty(property);
         }
         const firstNode = treeOutline.firstChild();
@@ -205,8 +211,8 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
     }
     static createSimpleValueElement(type, value) {
         let valueElement;
-        if (!type || type === "valueUndefined" /* ValueUndefined */ ||
-            type === "computedString" /* ComputedString */) {
+        if (!type || type === "valueUndefined" /* Protocol.Accessibility.AXValueType.ValueUndefined */ ||
+            type === "computedString" /* Protocol.Accessibility.AXValueType.ComputedString */) {
             valueElement = document.createElement('span');
         }
         else {
@@ -230,8 +236,7 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
         return valueElement;
     }
     static createExclamationMark(tooltip) {
-        const exclamationElement = document.createElement('span', { is: 'dt-icon-label' });
-        exclamationElement.type = 'smallicon-warning';
+        const exclamationElement = UI.UIUtils.createIconLabel({ iconName: 'warning-filled', color: 'var(--icon-warning)' });
         UI.Tooltip.Tooltip.install(exclamationElement, tooltip);
         return exclamationElement;
     }
@@ -252,10 +257,10 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
         this.listItemElement.appendChild(nameElement);
     }
     appendValueElement(value) {
-        if (value.type === "idref" /* Idref */ ||
-            value.type === "node" /* Node */ ||
-            value.type === "idrefList" /* IdrefList */ ||
-            value.type === "nodeList" /* NodeList */) {
+        if (value.type === "idref" /* Protocol.Accessibility.AXValueType.Idref */ ||
+            value.type === "node" /* Protocol.Accessibility.AXValueType.Node */ ||
+            value.type === "idrefList" /* Protocol.Accessibility.AXValueType.IdrefList */ ||
+            value.type === "nodeList" /* Protocol.Accessibility.AXValueType.NodeList */) {
             this.appendRelatedNodeListValueElement(value);
             return;
         }
@@ -313,10 +318,10 @@ export const TypeStyles = {
     valueUndefined: 'ax-value-undefined',
 };
 export const StringProperties = new Set([
-    "string" /* String */,
-    "computedString" /* ComputedString */,
-    "idrefList" /* IdrefList */,
-    "idref" /* Idref */,
+    "string" /* Protocol.Accessibility.AXValueType.String */,
+    "computedString" /* Protocol.Accessibility.AXValueType.ComputedString */,
+    "idrefList" /* Protocol.Accessibility.AXValueType.IdrefList */,
+    "idref" /* Protocol.Accessibility.AXValueType.Idref */,
 ]);
 export class AXNodePropertyTreePropertyElement extends AXNodePropertyTreeElement {
     property;
@@ -386,8 +391,8 @@ export class AXValueSourceTreeElement extends AXNodePropertyTreeElement {
     appendRelatedNodeListValueElement(value) {
         const relatedNodes = value.relatedNodes;
         const numNodes = relatedNodes ? relatedNodes.length : 0;
-        if (value.type === "idrefList" /* IdrefList */ ||
-            value.type === "idref" /* Idref */) {
+        if (value.type === "idrefList" /* Protocol.Accessibility.AXValueType.IdrefList */ ||
+            value.type === "idref" /* Protocol.Accessibility.AXValueType.Idref */) {
             this.appendIDRefValueElement(value);
         }
         else {
@@ -404,9 +409,9 @@ export class AXValueSourceTreeElement extends AXNodePropertyTreeElement {
         const nameElement = document.createElement('span');
         const type = source.type;
         switch (type) {
-            case "attribute" /* Attribute */:
-            case "placeholder" /* Placeholder */:
-            case "relatedElement" /* RelatedElement */:
+            case "attribute" /* Protocol.Accessibility.AXValueSourceType.Attribute */:
+            case "placeholder" /* Protocol.Accessibility.AXValueSourceType.Placeholder */:
+            case "relatedElement" /* Protocol.Accessibility.AXValueSourceType.RelatedElement */:
                 if (source.nativeSource) {
                     const nativeSource = source.nativeSource;
                     nameElement.textContent = AXNativeSourceTypes[nativeSource].name();
@@ -458,7 +463,7 @@ export class AXValueSourceTreeElement extends AXNodePropertyTreeElement {
             this.appendValueElement(this.source.value);
         }
         else {
-            const valueElement = AXNodePropertyTreeElement.createSimpleValueElement("valueUndefined" /* ValueUndefined */, i18nString(UIStrings.notSpecified));
+            const valueElement = AXNodePropertyTreeElement.createSimpleValueElement("valueUndefined" /* Protocol.Accessibility.AXValueType.ValueUndefined */, i18nString(UIStrings.notSpecified));
             this.listItemElement.appendChild(valueElement);
             this.listItemElement.classList.add('ax-value-source-unused');
         }
@@ -482,7 +487,7 @@ export class AXRelatedNodeSourceTreeElement extends UI.TreeOutline.TreeElement {
             return;
         }
         if (this.value.text) {
-            this.listItemElement.appendChild(AXNodePropertyTreeElement.createSimpleValueElement("computedString" /* ComputedString */, this.value.text));
+            this.listItemElement.appendChild(AXNodePropertyTreeElement.createSimpleValueElement("computedString" /* Protocol.Accessibility.AXValueType.ComputedString */, this.value.text));
         }
     }
     onenter() {
@@ -504,8 +509,8 @@ export class AXRelatedNodeElement {
         if (this.deferredNode) {
             const valueElement = document.createElement('span');
             element.appendChild(valueElement);
-            this.deferredNode.resolvePromise().then(node => {
-                Common.Linkifier.Linkifier.linkify(node, { tooltip: undefined, preventKeyboardFocus: true })
+            void this.deferredNode.resolvePromise().then(node => {
+                void Common.Linkifier.Linkifier.linkify(node, { tooltip: undefined, preventKeyboardFocus: true })
                     .then(linkfied => valueElement.appendChild(linkfied));
             });
         }
@@ -522,7 +527,7 @@ export class AXRelatedNodeElement {
      */
     revealNode() {
         if (this.deferredNode) {
-            this.deferredNode.resolvePromise().then(node => Common.Revealer.reveal(node));
+            void this.deferredNode.resolvePromise().then(node => Common.Revealer.reveal(node));
         }
     }
 }
@@ -542,6 +547,9 @@ export class AXNodeIgnoredReasonTreeElement extends AXNodePropertyTreeElement {
         switch (reason) {
             case 'activeModalDialog':
                 reasonElement = i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementIsHiddenBy, {});
+                break;
+            case 'hiddenByChildTree':
+                reasonElement = i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementIsHiddenByChildTree, {});
                 break;
             case 'ancestorIsLeafNode':
                 reasonElement = i18n.i18n.getFormatLocalizedString(str_, UIStrings.ancestorChildrenAreAll, {});
@@ -585,7 +593,7 @@ export class AXNodeIgnoredReasonTreeElement extends AXNodePropertyTreeElement {
                 reasonElement = i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementIsNotVisible, {});
                 break;
             case 'presentationalRole': {
-                const role = axNode && axNode.role() || '';
+                const role = axNode && axNode.role()?.value || '';
                 const rolePresentationSpan = document.createElement('span', { is: 'source-code' }).textContent = 'role=' + role;
                 reasonElement =
                     i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementHasPlaceholder, { PH1: rolePresentationSpan });
@@ -610,7 +618,7 @@ export class AXNodeIgnoredReasonTreeElement extends AXNodePropertyTreeElement {
             this.listItemElement.appendChild(this.reasonElement);
         }
         const value = this.property.value;
-        if (value.type === "idref" /* Idref */) {
+        if (value.type === "idref" /* Protocol.Accessibility.AXValueType.Idref */) {
             this.appendRelatedNodeListValueElement(value);
         }
     }

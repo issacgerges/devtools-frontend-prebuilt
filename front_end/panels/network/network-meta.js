@@ -2,117 +2,127 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
-import * as Root from '../../core/root/root.js';
-import * as SDK from '../../core/sdk/sdk.js';
-import * as Workspace from '../../models/workspace/workspace.js';
-import * as NetworkForward from '../../panels/network/forward/forward.js';
-import * as UI from '../../ui/legacy/legacy.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import * as SDK from '../../core/sdk/sdk.js';
+import * as Extensions from '../../models/extensions/extensions.js';
+import * as Workspace from '../../models/workspace/workspace.js';
+import * as UI from '../../ui/legacy/legacy.js';
+import * as NetworkForward from './forward/forward.js';
 const UIStrings = {
     /**
-    *@description Command for showing the 'Network' tool
-    */
+     *@description Command for showing the 'Network' tool
+     */
     showNetwork: 'Show Network',
     /**
-    *@description Title of the Network tool
-    */
+     *@description Title of the Network tool
+     */
     network: 'Network',
     /**
-    *@description Command for showing the 'Network request blocking' tool
-    */
+     *@description Command for showing the 'Network request blocking' tool
+     */
     showNetworkRequestBlocking: 'Show Network request blocking',
     /**
-    *@description Title of the 'Network request blocking' tool in the bottom drawer
-    */
+     *@description Title of the 'Network request blocking' tool in the bottom drawer
+     */
     networkRequestBlocking: 'Network request blocking',
     /**
-    *@description Command for showing the 'Network conditions' tool
-    */
+     *@description Command for showing the 'Network conditions' tool
+     */
     showNetworkConditions: 'Show Network conditions',
     /**
-    *@description Title of the 'Network conditions' tool in the bottom drawer
-    */
+     *@description Title of the 'Network conditions' tool in the bottom drawer
+     */
     networkConditions: 'Network conditions',
     /**
-    *@description A tag of Network Conditions tool that can be searched in the command menu
-    */
+     *@description A tag of Network Conditions tool that can be searched in the command menu
+     */
     diskCache: 'disk cache',
     /**
-    *@description A tag of Network Conditions tool that can be searched in the command menu
-    */
+     *@description A tag of Network Conditions tool that can be searched in the command menu
+     */
     networkThrottling: 'network throttling',
     /**
-    *@description Command for showing the 'Search' tool
-    */
+     *@description Command for showing the 'Search' tool
+     */
     showSearch: 'Show Search',
     /**
-    *@description Title of a search bar or tool
-    */
+     *@description Title of a search bar or tool
+     */
     search: 'Search',
     /**
-    *@description Title of an action in the network tool to toggle recording
-    */
+     *@description Title of an action in the network tool to toggle recording
+     */
     recordNetworkLog: 'Record network log',
     /**
-    *@description Title of an action in the network tool to toggle recording
-    */
+     *@description Title of an action in the network tool to toggle recording
+     */
     stopRecordingNetworkLog: 'Stop recording network log',
     /**
-    *@description Title of an action that hides network request details
-    */
+     *@description Title of an action that hides network request details
+     */
     hideRequestDetails: 'Hide request details',
     /**
-    *@description Title of a setting under the Network category in Settings
-    */
+     *@description Title of a setting under the Network category in Settings
+     */
     colorcodeResourceTypes: 'Color-code resource types',
     /**
-    *@description A tag of Network color-code resource types that can be searched in the command menu
-    */
+     *@description A tag of Network color-code resource types that can be searched in the command menu
+     */
     colorCode: 'color code',
     /**
-    *@description A tag of Network color-code resource types that can be searched in the command menu
-    */
+     *@description A tag of Network color-code resource types that can be searched in the command menu
+     */
     resourceType: 'resource type',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     colorCodeByResourceType: 'Color code by resource type',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     useDefaultColors: 'Use default colors',
     /**
-    *@description Title of a setting under the Network category in Settings
-    */
+     *@description Title of a setting under the Network category in Settings
+     */
     groupNetworkLogByFrame: 'Group network log by frame',
     /**
-    *@description A tag of Group Network by frame setting that can be searched in the command menu
-    */
+     *@description A tag of Group Network by frame setting that can be searched in the command menu
+     */
     netWork: 'network',
     /**
-    *@description A tag of Group Network by frame setting that can be searched in the command menu
-    */
+     *@description A tag of Group Network by frame setting that can be searched in the command menu
+     */
     frame: 'frame',
     /**
-    *@description A tag of Group Network by frame setting that can be searched in the command menu
-    */
+     *@description A tag of Group Network by frame setting that can be searched in the command menu
+     */
     group: 'group',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     groupNetworkLogItemsByFrame: 'Group network log items by frame',
     /**
-    *@description Title of a setting under the Network category that can be invoked through the Command Menu
-    */
+     *@description Title of a setting under the Network category that can be invoked through the Command Menu
+     */
     dontGroupNetworkLogItemsByFrame: 'Don\'t group network log items by frame',
+    /**
+     *@description Title of a button for clearing the network log
+     */
+    clear: 'Clear network log',
+    /**
+     *@description Title of an action in the Network request blocking panel to add a new URL pattern to the blocklist.
+     */
+    addNetworkRequestBlockingPattern: 'Add network request blocking pattern',
+    /**
+     *@description Title of an action in the Network request blocking panel to clear all URL patterns.
+     */
+    removeAllNetworkRequestBlockingPatterns: 'Remove all network request blocking patterns',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/network/network-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 let loadedNetworkModule;
 async function loadNetworkModule() {
     if (!loadedNetworkModule) {
-        // Side-effect import resources in module.json
-        await Root.Runtime.Runtime.instance().loadModulePromise('panels/network');
         loadedNetworkModule = await import('./network.js');
     }
     return loadedNetworkModule;
@@ -124,7 +134,7 @@ function maybeRetrieveContextTypes(getClassCallBack) {
     return getClassCallBack(loadedNetworkModule);
 }
 UI.ViewManager.registerViewExtension({
-    location: "panel" /* PANEL */,
+    location: "panel" /* UI.ViewManager.ViewLocationValues.PANEL */,
     id: 'network',
     commandPrompt: i18nLazyString(UIStrings.showNetwork),
     title: i18nLazyString(UIStrings.network),
@@ -135,23 +145,23 @@ UI.ViewManager.registerViewExtension({
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "drawer-view" /* DRAWER_VIEW */,
+    location: "drawer-view" /* UI.ViewManager.ViewLocationValues.DRAWER_VIEW */,
     id: 'network.blocked-urls',
     commandPrompt: i18nLazyString(UIStrings.showNetworkRequestBlocking),
     title: i18nLazyString(UIStrings.networkRequestBlocking),
-    persistence: "closeable" /* CLOSEABLE */,
+    persistence: "closeable" /* UI.ViewManager.ViewPersistence.CLOSEABLE */,
     order: 60,
     async loadView() {
         const Network = await loadNetworkModule();
-        return Network.BlockedURLsPane.BlockedURLsPane.instance();
+        return new Network.BlockedURLsPane.BlockedURLsPane();
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "drawer-view" /* DRAWER_VIEW */,
+    location: "drawer-view" /* UI.ViewManager.ViewLocationValues.DRAWER_VIEW */,
     id: 'network.config',
     commandPrompt: i18nLazyString(UIStrings.showNetworkConditions),
     title: i18nLazyString(UIStrings.networkConditions),
-    persistence: "closeable" /* CLOSEABLE */,
+    persistence: "closeable" /* UI.ViewManager.ViewPersistence.CLOSEABLE */,
     order: 40,
     tags: [
         i18nLazyString(UIStrings.diskCache),
@@ -166,11 +176,11 @@ UI.ViewManager.registerViewExtension({
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "network-sidebar" /* NETWORK_SIDEBAR */,
+    location: "network-sidebar" /* UI.ViewManager.ViewLocationValues.NETWORK_SIDEBAR */,
     id: 'network.search-network-tab',
     commandPrompt: i18nLazyString(UIStrings.showSearch),
     title: i18nLazyString(UIStrings.search),
-    persistence: "permanent" /* PERMANENT */,
+    persistence: "permanent" /* UI.ViewManager.ViewPersistence.PERMANENT */,
     async loadView() {
         const Network = await loadNetworkModule();
         return Network.NetworkPanel.SearchNetworkView.instance();
@@ -178,17 +188,17 @@ UI.ViewManager.registerViewExtension({
 });
 UI.ActionRegistration.registerActionExtension({
     actionId: 'network.toggle-recording',
-    category: UI.ActionRegistration.ActionCategory.NETWORK,
-    iconClass: "largeicon-start-recording" /* LARGEICON_START_RECORDING */,
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
+    iconClass: "record-start" /* UI.ActionRegistration.IconClass.START_RECORDING */,
     toggleable: true,
-    toggledIconClass: "largeicon-stop-recording" /* LARGEICON_STOP_RECORDING */,
+    toggledIconClass: "record-stop" /* UI.ActionRegistration.IconClass.STOP_RECORDING */,
     toggleWithRedColor: true,
     contextTypes() {
         return maybeRetrieveContextTypes(Network => [Network.NetworkPanel.NetworkPanel]);
     },
     async loadActionDelegate() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.ActionDelegate.instance();
+        return new Network.NetworkPanel.ActionDelegate();
     },
     options: [
         {
@@ -203,24 +213,46 @@ UI.ActionRegistration.registerActionExtension({
     bindings: [
         {
             shortcut: 'Ctrl+E',
-            platform: "windows,linux" /* WindowsLinux */,
+            platform: "windows,linux" /* UI.ActionRegistration.Platforms.WindowsLinux */,
         },
         {
             shortcut: 'Meta+E',
-            platform: "mac" /* Mac */,
+            platform: "mac" /* UI.ActionRegistration.Platforms.Mac */,
+        },
+    ],
+});
+UI.ActionRegistration.registerActionExtension({
+    actionId: 'network.clear',
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
+    title: i18nLazyString(UIStrings.clear),
+    iconClass: "clear" /* UI.ActionRegistration.IconClass.CLEAR */,
+    async loadActionDelegate() {
+        const Network = await loadNetworkModule();
+        return new Network.NetworkPanel.ActionDelegate();
+    },
+    contextTypes() {
+        return maybeRetrieveContextTypes(Network => [Network.NetworkPanel.NetworkPanel]);
+    },
+    bindings: [
+        {
+            shortcut: 'Ctrl+L',
+        },
+        {
+            shortcut: 'Meta+K',
+            platform: "mac" /* UI.ActionRegistration.Platforms.Mac */,
         },
     ],
 });
 UI.ActionRegistration.registerActionExtension({
     actionId: 'network.hide-request-details',
-    category: UI.ActionRegistration.ActionCategory.NETWORK,
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
     title: i18nLazyString(UIStrings.hideRequestDetails),
     contextTypes() {
         return maybeRetrieveContextTypes(Network => [Network.NetworkPanel.NetworkPanel]);
     },
     async loadActionDelegate() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.ActionDelegate.instance();
+        return new Network.NetworkPanel.ActionDelegate();
     },
     bindings: [
         {
@@ -230,40 +262,66 @@ UI.ActionRegistration.registerActionExtension({
 });
 UI.ActionRegistration.registerActionExtension({
     actionId: 'network.search',
-    category: UI.ActionRegistration.ActionCategory.NETWORK,
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
     title: i18nLazyString(UIStrings.search),
     contextTypes() {
         return maybeRetrieveContextTypes(Network => [Network.NetworkPanel.NetworkPanel]);
     },
     async loadActionDelegate() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.ActionDelegate.instance();
+        return new Network.NetworkPanel.ActionDelegate();
     },
     bindings: [
         {
-            platform: "mac" /* Mac */,
+            platform: "mac" /* UI.ActionRegistration.Platforms.Mac */,
             shortcut: 'Meta+F',
             keybindSets: [
-                "devToolsDefault" /* DEVTOOLS_DEFAULT */,
-                "vsCode" /* VS_CODE */,
+                "devToolsDefault" /* UI.ActionRegistration.KeybindSet.DEVTOOLS_DEFAULT */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
         {
-            platform: "windows,linux" /* WindowsLinux */,
+            platform: "windows,linux" /* UI.ActionRegistration.Platforms.WindowsLinux */,
             shortcut: 'Ctrl+F',
             keybindSets: [
-                "devToolsDefault" /* DEVTOOLS_DEFAULT */,
-                "vsCode" /* VS_CODE */,
+                "devToolsDefault" /* UI.ActionRegistration.KeybindSet.DEVTOOLS_DEFAULT */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
     ],
 });
+UI.ActionRegistration.registerActionExtension({
+    actionId: 'network.add-network-request-blocking-pattern',
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
+    title: i18nLazyString(UIStrings.addNetworkRequestBlockingPattern),
+    iconClass: "plus" /* UI.ActionRegistration.IconClass.PLUS */,
+    contextTypes() {
+        return maybeRetrieveContextTypes(Network => [Network.BlockedURLsPane.BlockedURLsPane]);
+    },
+    async loadActionDelegate() {
+        const Network = await loadNetworkModule();
+        return new Network.BlockedURLsPane.ActionDelegate();
+    },
+});
+UI.ActionRegistration.registerActionExtension({
+    actionId: 'network.remove-all-network-request-blocking-patterns',
+    category: "NETWORK" /* UI.ActionRegistration.ActionCategory.NETWORK */,
+    title: i18nLazyString(UIStrings.removeAllNetworkRequestBlockingPatterns),
+    iconClass: "clear" /* UI.ActionRegistration.IconClass.CLEAR */,
+    contextTypes() {
+        return maybeRetrieveContextTypes(Network => [Network.BlockedURLsPane.BlockedURLsPane]);
+    },
+    async loadActionDelegate() {
+        const Network = await loadNetworkModule();
+        return new Network.BlockedURLsPane.ActionDelegate();
+    },
+});
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.NETWORK,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "NETWORK" /* Common.Settings.SettingCategory.NETWORK */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.colorcodeResourceTypes),
-    settingName: 'networkColorCodeResourceTypes',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingName: 'network-color-code-resource-types',
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
     tags: [
         i18nLazyString(UIStrings.colorCode),
@@ -281,11 +339,11 @@ Common.Settings.registerSettingExtension({
     ],
 });
 Common.Settings.registerSettingExtension({
-    category: Common.Settings.SettingCategory.NETWORK,
-    storageType: Common.Settings.SettingStorageType.Synced,
+    category: "NETWORK" /* Common.Settings.SettingCategory.NETWORK */,
+    storageType: "Synced" /* Common.Settings.SettingStorageType.Synced */,
     title: i18nLazyString(UIStrings.groupNetworkLogByFrame),
     settingName: 'network.group-by-frame',
-    settingType: Common.Settings.SettingType.BOOLEAN,
+    settingType: "boolean" /* Common.Settings.SettingType.BOOLEAN */,
     defaultValue: false,
     tags: [
         i18nLazyString(UIStrings.netWork),
@@ -304,8 +362,8 @@ Common.Settings.registerSettingExtension({
     ],
 });
 UI.ViewManager.registerLocationResolver({
-    name: "network-sidebar" /* NETWORK_SIDEBAR */,
-    category: UI.ViewManager.ViewLocationCategoryValues.NETWORK,
+    name: "network-sidebar" /* UI.ViewManager.ViewLocationValues.NETWORK_SIDEBAR */,
+    category: "NETWORK" /* UI.ViewManager.ViewLocationCategory.NETWORK */,
     async loadResolver() {
         const Network = await loadNetworkModule();
         return Network.NetworkPanel.NetworkPanel.instance();
@@ -321,7 +379,7 @@ UI.ContextMenu.registerProvider({
     },
     async loadProvider() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.ContextMenuProvider.instance();
+        return Network.NetworkPanel.NetworkPanel.instance();
     },
     experiment: undefined,
 });
@@ -334,18 +392,18 @@ Common.Revealer.registerRevealer({
     destination: Common.Revealer.RevealerDestination.NETWORK_PANEL,
     async loadRevealer() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.RequestRevealer.instance();
+        return new Network.NetworkPanel.RequestRevealer();
     },
 });
 Common.Revealer.registerRevealer({
     contextTypes() {
         return [NetworkForward.UIRequestLocation.UIRequestLocation];
     },
+    destination: undefined,
     async loadRevealer() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.RequestLocationRevealer.instance();
+        return new Network.NetworkPanel.RequestLocationRevealer();
     },
-    destination: undefined,
 });
 Common.Revealer.registerRevealer({
     contextTypes() {
@@ -354,19 +412,17 @@ Common.Revealer.registerRevealer({
     destination: Common.Revealer.RevealerDestination.NETWORK_PANEL,
     async loadRevealer() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.RequestIdRevealer.instance();
+        return new Network.NetworkPanel.RequestIdRevealer();
     },
 });
 Common.Revealer.registerRevealer({
     contextTypes() {
-        return [
-            NetworkForward.UIFilter.UIRequestFilter,
-        ];
+        return [NetworkForward.UIFilter.UIRequestFilter, Extensions.ExtensionServer.RevealableNetworkRequestFilter];
     },
     destination: Common.Revealer.RevealerDestination.NETWORK_PANEL,
     async loadRevealer() {
         const Network = await loadNetworkModule();
-        return Network.NetworkPanel.NetworkLogWithFilterRevealer.instance();
+        return new Network.NetworkPanel.NetworkLogWithFilterRevealer();
     },
 });
 //# sourceMappingURL=network-meta.js.map

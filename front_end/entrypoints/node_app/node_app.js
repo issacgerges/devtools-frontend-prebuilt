@@ -1,1 +1,72 @@
-Root.allDescriptors.push(...[{"dependencies":["ui/legacy"],"name":"entrypoints/node_main"},{"dependencies":["panels/profiler"],"name":"panels/js_profiler"}]);Root.applicationDescriptor.modules.push(...[{"name":"entrypoints/node_main","type":"autostart"},{"name":"panels/js_profiler"}]);import*as RootModule from'../../core/root/root.js';RootModule.Runtime.cachedResources.set("entrypoints/node_main/nodeConnectionsPanel.css","/*\n * Copyright (c) 2015 The Chromium Authors. All rights reserved.\n * Use of this source code is governed by a BSD-style license that can be\n * found in the LICENSE file.\n */\n\n.add-network-target-button {\n  margin: 10px 25px;\n  align-self: center;\n}\n\n.network-discovery-list {\n  flex: none;\n  max-width: 600px;\n  max-height: 202px;\n  margin: 20px 0 5px 0;\n}\n\n.network-discovery-list-empty {\n  flex: auto;\n  height: 30px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.network-discovery-list-item {\n  padding: 3px 5px 3px 5px;\n  height: 30px;\n  display: flex;\n  align-items: center;\n  position: relative;\n  flex: auto 1 1;\n}\n\n.network-discovery-value {\n  flex: 3 1 0;\n}\n\n.list-item .network-discovery-value {\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  user-select: none;\n  color: var(--color-text-primary);\n  overflow: hidden;\n}\n\n.network-discovery-edit-row {\n  flex: none;\n  display: flex;\n  flex-direction: row;\n  margin: 6px 5px;\n  align-items: center;\n}\n\n.network-discovery-edit-row input {\n  width: 100%;\n  text-align: inherit;\n}\n\n.network-discovery-footer {\n  margin: 0;\n  overflow: hidden;\n  max-width: 500px;\n}\n\n.network-discovery-footer > * {\n  white-space: pre-wrap;\n}\n\n.node-panel {\n  align-items: center;\n  justify-content: flex-start;\n  overflow-y: auto;\n}\n\n.network-discovery-view {\n  min-width: 400px;\n  text-align: left;\n}\n\n:host-context(.node-frontend) .network-discovery-list-empty {\n  height: 40px;\n}\n\n:host-context(.node-frontend) .network-discovery-list-item {\n  padding: 3px 15px;\n  height: 40px;\n}\n\n.node-panel-center {\n  max-width: 600px;\n  padding-top: 50px;\n  text-align: center;\n}\n\n.node-panel-logo {\n  width: 400px;\n  margin-bottom: 50px;\n}\n\n:host-context(.node-frontend) .network-discovery-edit-row input {\n  height: 30px;\n  padding-left: 5px;\n}\n\n:host-context(.node-frontend) .network-discovery-edit-row {\n  margin: 6px 9px;\n}\n\n/*# sourceURL=entrypoints/node_main/nodeConnectionsPanel.css */");import'../shell/shell.js';import'../../panels/js_profiler/js_profiler-meta.js';import'../node_main/node_main-meta.js';import'./node_app-meta.js';import*as Startup from'../startup/startup.js';Startup.RuntimeInstantiator.startApplication('node_app');
+// Copyright 2018 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+import '../shell/shell.js';
+import '../../panels/mobile_throttling/mobile_throttling-meta.js';
+import '../../panels/js_timeline/js_timeline-meta.js';
+import * as Common from '../../core/common/common.js';
+import * as i18n from '../../core/i18n/i18n.js';
+import * as Root from '../../core/root/root.js';
+import * as UI from '../../ui/legacy/legacy.js';
+import * as Main from '../main/main.js';
+import { NodeConnectionsPanel } from './NodeConnectionsPanel.js'; // eslint-disable-line rulesdir/es_modules_import
+import { NodeMainImpl } from './NodeMain.js'; // eslint-disable-line rulesdir/es_modules_import
+const UIStrings = {
+    /**
+     *@description Text that refers to the network connection
+     */
+    connection: 'Connection',
+    /**
+     *@description A tag of Node.js Connection Panel that can be searched in the command menu
+     */
+    node: 'node',
+    /**
+     *@description Command for showing the Connection tool
+     */
+    showConnection: 'Show Connection',
+    /**
+     *@description Title of the 'Node' tool in the Network Navigator View, which is part of the Sources tool
+     */
+    networkTitle: 'Node',
+    /**
+     *@description Command for showing the 'Node' tool in the Network Navigator View, which is part of the Sources tool
+     */
+    showNode: 'Show Node',
+};
+const str_ = i18n.i18n.registerUIStrings('entrypoints/node_app/node_app.ts', UIStrings);
+const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
+let loadedSourcesModule;
+async function loadSourcesModule() {
+    if (!loadedSourcesModule) {
+        loadedSourcesModule = await import('../../panels/sources/sources.js');
+    }
+    return loadedSourcesModule;
+}
+UI.ViewManager.registerViewExtension({
+    location: "panel" /* UI.ViewManager.ViewLocationValues.PANEL */,
+    id: 'node-connection',
+    title: i18nLazyString(UIStrings.connection),
+    commandPrompt: i18nLazyString(UIStrings.showConnection),
+    order: 0,
+    async loadView() {
+        return new NodeConnectionsPanel();
+    },
+    tags: [i18nLazyString(UIStrings.node)],
+});
+UI.ViewManager.registerViewExtension({
+    location: "navigator-view" /* UI.ViewManager.ViewLocationValues.NAVIGATOR_VIEW */,
+    id: 'navigator-network',
+    title: i18nLazyString(UIStrings.networkTitle),
+    commandPrompt: i18nLazyString(UIStrings.showNode),
+    order: 2,
+    persistence: "permanent" /* UI.ViewManager.ViewPersistence.PERMANENT */,
+    async loadView() {
+        const Sources = await loadSourcesModule();
+        return Sources.SourcesNavigator.NetworkNavigatorView.instance();
+    },
+});
+// @ts-ignore Exposed for legacy layout tests
+self.runtime = Root.Runtime.Runtime.instance({ forceNew: true });
+Common.Runnable.registerEarlyInitializationRunnable(NodeMainImpl.instance);
+new Main.MainImpl.MainImpl();
+//# sourceMappingURL=node_app.js.map

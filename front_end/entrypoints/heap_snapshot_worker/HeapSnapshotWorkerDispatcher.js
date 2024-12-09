@@ -27,68 +27,66 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import * as HeapSnapshotModel from '../../models/heap_snapshot_model/heap_snapshot_model.js';
+// We mirror what heap_snapshot_worker.ts does, but we can't use it here as we'd have a
+// cyclic GN dependency otherwise.
+import * as AllocationProfile from './AllocationProfile.js';
+import * as HeapSnapshot from './HeapSnapshot.js';
+import * as HeapSnapshotLoader from './HeapSnapshotLoader.js';
 export class HeapSnapshotWorkerDispatcher {
     // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    objects;
-    global;
-    postMessage;
-    constructor(globalObject, postMessage) {
-        this.objects = [];
-        this.global = globalObject;
-        this.postMessage = postMessage;
+    #objects;
+    #postMessage;
+    constructor(postMessage) {
+        this.#objects = [];
+        this.#postMessage = postMessage;
     }
-    findFunction(name) {
-        const path = name.split('.');
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let result = this.global;
-        for (let i = 0; i < path.length; ++i) {
-            result = result[path[i]];
-        }
-        return /** @type {!Function} */ result;
-    }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sendEvent(name, data) {
-        this.postMessage({ eventName: name, data: data });
+        this.#postMessage({ eventName: name, data: data });
     }
     dispatchMessage({ data }) {
         const response = { callId: data.callId, result: null, error: undefined, errorCallStack: undefined, errorMethodName: undefined };
         try {
             switch (data.disposition) {
-                case 'create': {
-                    const constructorFunction = this.findFunction(data.methodName);
-                    // @ts-ignore
-                    this.objects[data.objectId] = new constructorFunction(this);
+                case 'createLoader':
+                    this.#objects[data.objectId] = new HeapSnapshotLoader.HeapSnapshotLoader(this);
                     break;
-                }
                 case 'dispose': {
-                    delete this.objects[data.objectId];
+                    delete this.#objects[data.objectId];
                     break;
                 }
                 case 'getter': {
-                    const object = this.objects[data.objectId];
+                    const object = this.#objects[data.objectId];
                     const result = object[data.methodName];
                     response.result = result;
                     break;
                 }
                 case 'factory': {
-                    const object = this.objects[data.objectId];
+                    const object = this.#objects[data.objectId];
                     const result = object[data.methodName].apply(object, data.methodArguments);
                     if (result) {
-                        this.objects[data.newObjectId] = result;
+                        this.#objects[data.newObjectId] = result;
                     }
                     response.result = Boolean(result);
                     break;
                 }
                 case 'method': {
-                    const object = this.objects[data.objectId];
+                    const object = this.#objects[data.objectId];
                     response.result = object[data.methodName].apply(object, data.methodArguments);
                     break;
                 }
                 case 'evaluateForTest': {
                     try {
+                        // Make 'HeapSnapshotWorker' and 'HeapSnapshotModel' available to web tests. 'eval' can't use 'import'.
+                        // @ts-ignore
+                        globalThis.HeapSnapshotWorker = {
+                            AllocationProfile,
+                            HeapSnapshot,
+                            HeapSnapshotLoader,
+                        };
+                        // @ts-ignore
+                        globalThis.HeapSnapshotModel = HeapSnapshotModel;
                         response.result = self.eval(data.source);
                     }
                     catch (error) {
@@ -105,7 +103,7 @@ export class HeapSnapshotWorkerDispatcher {
                 response.errorMethodName = data.methodName;
             }
         }
-        this.postMessage(response);
+        this.#postMessage(response);
     }
 }
 //# sourceMappingURL=HeapSnapshotWorkerDispatcher.js.map

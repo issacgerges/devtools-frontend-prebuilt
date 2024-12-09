@@ -28,15 +28,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 import * as i18n from '../i18n/i18n.js';
-import * as Root from '../root/root.js';
 import { DebuggerModel, Location } from './DebuggerModel.js';
-import { Capability } from './Target.js';
 import { SDKModel } from './SDKModel.js';
 const UIStrings = {
     /**
-    *@description Name of a profile. Placeholder is either a user-supplied name or a number automatically assigned to the profile.
-    *@example {2} PH1
-    */
+     *@description Name of a profile. Placeholder is either a user-supplied name or a number automatically assigned to the profile.
+     *@example {2} PH1
+     */
     profileD: 'Profile {PH1}',
 };
 const str_ = i18n.i18n.registerUIStrings('core/sdk/CPUProfilerModel.ts', UIStrings);
@@ -48,6 +46,7 @@ export class CPUProfilerModel extends SDKModel {
     #profilerAgent;
     #preciseCoverageDeltaUpdateCallback;
     #debuggerModelInternal;
+    registeredConsoleProfileMessages = [];
     constructor(target) {
         super(target);
         this.#isRecording = false;
@@ -56,7 +55,7 @@ export class CPUProfilerModel extends SDKModel {
         this.#profilerAgent = target.profilerAgent();
         this.#preciseCoverageDeltaUpdateCallback = null;
         target.registerProfilerDispatcher(this);
-        this.#profilerAgent.invoke_enable();
+        void this.#profilerAgent.invoke_enable();
         this.#debuggerModelInternal = target.model(DebuggerModel);
     }
     runtimeModel() {
@@ -71,21 +70,19 @@ export class CPUProfilerModel extends SDKModel {
             this.#anonymousConsoleProfileIdToTitle.set(id, title);
         }
         const eventData = this.createEventDataFrom(id, location, title);
-        this.dispatchEventToListeners(Events.ConsoleProfileStarted, eventData);
+        this.dispatchEventToListeners("ConsoleProfileStarted" /* Events.ConsoleProfileStarted */, eventData);
     }
     consoleProfileFinished({ id, location, profile, title }) {
         if (!title) {
             title = this.#anonymousConsoleProfileIdToTitle.get(id);
             this.#anonymousConsoleProfileIdToTitle.delete(id);
         }
-        // Make sure ProfilesPanel is initialized and CPUProfileType is created.
-        Root.Runtime.Runtime.instance().loadModulePromise('profiler').then(() => {
-            const eventData = {
-                ...this.createEventDataFrom(id, location, title),
-                cpuProfile: profile,
-            };
-            this.dispatchEventToListeners(Events.ConsoleProfileFinished, eventData);
-        });
+        const eventData = {
+            ...this.createEventDataFrom(id, location, title),
+            cpuProfile: profile,
+        };
+        this.registeredConsoleProfileMessages.push(eventData);
+        this.dispatchEventToListeners("ConsoleProfileFinished" /* Events.ConsoleProfileFinished */, eventData);
     }
     createEventDataFrom(id, scriptLocation, title) {
         const debuggerLocation = Location.fromPayload(this.#debuggerModelInternal, scriptLocation);
@@ -103,7 +100,7 @@ export class CPUProfilerModel extends SDKModel {
     startRecording() {
         this.#isRecording = true;
         const intervalUs = 100;
-        this.#profilerAgent.invoke_setSamplingInterval({ interval: intervalUs });
+        void this.#profilerAgent.invoke_setSamplingInterval({ interval: intervalUs });
         return this.#profilerAgent.invoke_start();
     }
     stopRecording() {
@@ -128,16 +125,9 @@ export class CPUProfilerModel extends SDKModel {
     }
     preciseCoverageDeltaUpdate({ timestamp, occasion, result }) {
         if (this.#preciseCoverageDeltaUpdateCallback) {
-            this.#preciseCoverageDeltaUpdateCallback(timestamp, occasion, result);
+            void this.#preciseCoverageDeltaUpdateCallback(timestamp, occasion, result);
         }
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["ConsoleProfileStarted"] = "ConsoleProfileStarted";
-    Events["ConsoleProfileFinished"] = "ConsoleProfileFinished";
-})(Events || (Events = {}));
-SDKModel.register(CPUProfilerModel, { capabilities: Capability.JS, autostart: true });
+SDKModel.register(CPUProfilerModel, { capabilities: 4 /* Capability.JS */, autostart: true });
 //# sourceMappingURL=CPUProfilerModel.js.map

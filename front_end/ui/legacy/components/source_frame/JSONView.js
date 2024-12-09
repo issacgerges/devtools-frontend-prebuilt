@@ -30,12 +30,14 @@
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
 import * as SDK from '../../../../core/sdk/sdk.js';
+import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
 import * as ObjectUI from '../object_ui/object_ui.js';
+import jsonViewStyles from './jsonView.css.legacy.js';
 const UIStrings = {
     /**
-    *@description Text to find an item
-    */
+     *@description Text to find an item
+     */
     find: 'Find',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/source_frame/JSONView.ts', UIStrings);
@@ -52,10 +54,11 @@ export class JSONView extends UI.Widget.VBox {
     constructor(parsedJSON, startCollapsed) {
         super();
         this.initialized = false;
-        this.registerRequiredCSS('ui/legacy/components/source_frame/jsonView.css');
+        this.registerRequiredCSS(jsonViewStyles);
         this.parsedJSON = parsedJSON;
         this.startCollapsed = Boolean(startCollapsed);
         this.element.classList.add('json-view');
+        this.element.setAttribute('jslog', `${VisualLogging.section('json-view')}`);
         this.currentSearchFocusIndex = 0;
         this.currentSearchTreeElements = [];
         this.searchRegex = null;
@@ -186,7 +189,7 @@ export class JSONView extends UI.Widget.VBox {
         }
         this.searchableView.updateCurrentMatchIndex(index);
     }
-    searchCanceled() {
+    onSearchCanceled() {
         this.searchRegex = null;
         this.currentSearchTreeElements = [];
         let element;
@@ -202,8 +205,8 @@ export class JSONView extends UI.Widget.VBox {
     performSearch(searchConfig, shouldJump, jumpBackwards) {
         let newIndex = this.currentSearchFocusIndex;
         const previousSearchFocusElement = this.currentSearchTreeElements[newIndex];
-        this.searchCanceled();
-        this.searchRegex = searchConfig.toSearchRegex(true);
+        this.onSearchCanceled();
+        this.searchRegex = searchConfig.toSearchRegex(true).regex;
         let element;
         for (element = this.treeOutline.rootElement(); element; element = element.traverseNextTreeElement(false)) {
             if (!(element instanceof ObjectUI.ObjectPropertiesSection.ObjectPropertyTreeElement)) {

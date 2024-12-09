@@ -2,13 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as i18n from '../../../core/i18n/i18n.js';
-import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
+import * as Buttons from '../../../ui/components/buttons/buttons.js';
+import * as Input from '../../../ui/components/input/input.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import adornerSettingsPaneStyles from './adornerSettingsPane.css.js';
 const UIStrings = {
     /**
-      * @description Title of a list of settings to toggle badges.
-      */
+     * @description Title of a list of settings to toggle badges.
+     */
     settingsTitle: 'Show badges',
     /**
      * @description ARIA label of the button to close the badge settings pane
@@ -28,18 +30,18 @@ export class AdornerSettingUpdatedEvent extends Event {
 }
 export class AdornerSettingsPane extends HTMLElement {
     static litTagName = LitHtml.literal `devtools-adorner-settings-pane`;
-    shadow = this.attachShadow({ mode: 'open' });
-    settings = new Map();
+    #shadow = this.attachShadow({ mode: 'open' });
+    #settings = new Map();
     connectedCallback() {
-        this.shadow.adoptedStyleSheets = [adornerSettingsPaneStyles];
+        this.#shadow.adoptedStyleSheets = [Input.checkboxStyles, adornerSettingsPaneStyles];
     }
     set data(data) {
-        this.settings = new Map(data.settings.entries());
-        this.render();
+        this.#settings = new Map(data.settings.entries());
+        this.#render();
     }
     show() {
         this.classList.remove('hidden');
-        const settingsPane = this.shadow.querySelector('.adorner-settings-pane');
+        const settingsPane = this.#shadow.querySelector('.adorner-settings-pane');
         if (settingsPane) {
             settingsPane.focus();
         }
@@ -47,20 +49,20 @@ export class AdornerSettingsPane extends HTMLElement {
     hide() {
         this.classList.add('hidden');
     }
-    onChange(ev) {
+    #onChange(ev) {
         const inputEl = ev.target;
         const adorner = inputEl.dataset.adorner;
         if (adorner === undefined) {
             return;
         }
         const isEnabledNow = inputEl.checked;
-        this.settings.set(adorner, isEnabledNow);
-        this.dispatchEvent(new AdornerSettingUpdatedEvent(adorner, isEnabledNow, this.settings));
-        this.render();
+        this.#settings.set(adorner, isEnabledNow);
+        this.dispatchEvent(new AdornerSettingUpdatedEvent(adorner, isEnabledNow, this.#settings));
+        this.#render();
     }
-    render() {
+    #render() {
         const settingTemplates = [];
-        for (const [adorner, isEnabled] of this.settings) {
+        for (const [adorner, isEnabled] of this.#settings) {
             // Disabled until https://crbug.com/1079231 is fixed.
             // clang-format off
             settingTemplates.push(html `
@@ -69,6 +71,7 @@ export class AdornerSettingsPane extends HTMLElement {
             class="adorner-status"
             type="checkbox" name=${adorner}
             .checked=${isEnabled}
+            jslog=${VisualLogging.toggle(adorner).track({ change: true })}
             data-adorner=${adorner}>
           <span class="adorner-name">${adorner}</span>
         </label>
@@ -78,18 +81,24 @@ export class AdornerSettingsPane extends HTMLElement {
         // Disabled until https://crbug.com/1079231 is fixed.
         // clang-format off
         render(html `
-      <div class="adorner-settings-pane" tabindex="-1">
+      <div class="adorner-settings-pane" tabindex="-1" jslog=${VisualLogging.pane('adorner-settings')}>
         <div class="settings-title">${i18nString(UIStrings.settingsTitle)}</div>
-        <div class="setting-list" @change=${this.onChange}>
+        <div class="setting-list" @change=${this.#onChange}>
           ${settingTemplates}
         </div>
-        <button class="close" @click=${this.hide} aria-label=${i18nString(UIStrings.closeButton)}></button>
+        <${Buttons.Button.Button.litTagName} aria-label=${i18nString(UIStrings.closeButton)}
+                                             .iconName=${'cross'}
+                                             .size=${"SMALL" /* Buttons.Button.Size.SMALL */}
+                                             .title=${i18nString(UIStrings.closeButton)}
+                                             .variant=${"icon" /* Buttons.Button.Variant.ICON */}
+                                             jslog=${VisualLogging.close().track({ click: true })}
+                                             @click=${this.hide}></${Buttons.Button.Button.litTagName}>
       </div>
-    `, this.shadow, {
+    `, this.#shadow, {
             host: this,
         });
         // clang-format on
     }
 }
-ComponentHelpers.CustomElements.defineComponent('devtools-adorner-settings-pane', AdornerSettingsPane);
+customElements.define('devtools-adorner-settings-pane', AdornerSettingsPane);
 //# sourceMappingURL=AdornerSettingsPane.js.map

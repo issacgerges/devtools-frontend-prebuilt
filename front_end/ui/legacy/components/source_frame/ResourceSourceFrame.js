@@ -29,45 +29,68 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
+import * as FormatterActions from '../../../../entrypoints/formatter_worker/FormatterActions.js'; // eslint-disable-line rulesdir/es_modules_import
+import * as TextUtils from '../../../../models/text_utils/text_utils.js';
 import * as UI from '../../legacy.js';
+import resourceSourceFrameStyles from './resourceSourceFrame.css.legacy.js';
 import { SourceFrameImpl } from './SourceFrame.js';
 const UIStrings = {
     /**
-    *@description Text to find an item
-    */
+     *@description Text to find an item
+     */
     find: 'Find',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/source_frame/ResourceSourceFrame.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class ResourceSourceFrame extends SourceFrameImpl {
     resourceInternal;
-    constructor(resource, autoPrettyPrint, codeMirrorOptions) {
-        super(() => resource.requestContent(), codeMirrorOptions);
+    #givenContentType;
+    constructor(resource, givenContentType, options) {
+        const isStreamingProvider = TextUtils.ContentProvider.isStreamingContentProvider(resource);
+        /* eslint-disable @typescript-eslint/explicit-function-return-type */
+        const lazyContent = isStreamingProvider ?
+            () => resource.requestStreamingContent().then(TextUtils.StreamingContentData.asDeferredContent.bind(null)) :
+            () => resource.requestContent();
+        super(lazyContent, options);
+        /* eslint-enable @typescript-eslint/explicit-function-return-type */
+        this.#givenContentType = givenContentType;
         this.resourceInternal = resource;
+        if (isStreamingProvider) {
+            void resource.requestStreamingContent().then(streamingContent => {
+                if (!TextUtils.StreamingContentData.isError(streamingContent)) {
+                    streamingContent.addEventListener("ChunkAdded" /* TextUtils.StreamingContentData.Events.ChunkAdded */, () => {
+                        void this.setDeferredContent(Promise.resolve(streamingContent.content().asDeferedContent()));
+                    });
+                }
+            });
+        }
     }
-    static createSearchableView(resource, highlighterType, autoPrettyPrint) {
-        return new SearchableContainer(resource, highlighterType, autoPrettyPrint);
+    static createSearchableView(resource, contentType) {
+        return new SearchableContainer(resource, contentType);
+    }
+    getContentType() {
+        return this.#givenContentType;
     }
     get resource() {
         return this.resourceInternal;
     }
-    populateTextAreaContextMenu(contextMenu, _lineNumber, _columnNumber) {
+    populateTextAreaContextMenu(contextMenu, lineNumber, columnNumber) {
+        super.populateTextAreaContextMenu(contextMenu, lineNumber, columnNumber);
         contextMenu.appendApplicableItems(this.resourceInternal);
-        return Promise.resolve();
     }
 }
 export class SearchableContainer extends UI.Widget.VBox {
     sourceFrame;
-    constructor(resource, highlighterType, autoPrettyPrint) {
+    constructor(resource, contentType) {
         super(true);
-        this.registerRequiredCSS('ui/legacy/components/source_frame/resourceSourceFrame.css');
-        const sourceFrame = new ResourceSourceFrame(resource, autoPrettyPrint);
+        this.registerRequiredCSS(resourceSourceFrameStyles);
+        const simpleContentType = Common.ResourceType.ResourceType.simplifyContentType(contentType);
+        const sourceFrame = new ResourceSourceFrame(resource, simpleContentType);
         this.sourceFrame = sourceFrame;
-        sourceFrame.setHighlighterType(highlighterType);
-        const canPrettyPrint = sourceFrame.resource.contentType().isDocumentOrScriptOrStyleSheet() ||
-            sourceFrame.highlighterType() === 'application/json';
-        sourceFrame.setCanPrettyPrint(canPrettyPrint, autoPrettyPrint);
+        const canPrettyPrint = FormatterActions.FORMATTABLE_MEDIA_TYPES.includes(simpleContentType);
+        sourceFrame.setCanPrettyPrint(canPrettyPrint, true /* autoPrettyPrint */);
         const searchableView = new UI.SearchableView.SearchableView(sourceFrame, sourceFrame);
         searchableView.element.classList.add('searchable-view');
         searchableView.setPlaceholder(i18nString(UIStrings.find));
@@ -75,12 +98,12 @@ export class SearchableContainer extends UI.Widget.VBox {
         sourceFrame.setSearchableView(searchableView);
         searchableView.show(this.contentElement);
         const toolbar = new UI.Toolbar.Toolbar('toolbar', this.contentElement);
-        sourceFrame.toolbarItems().then(items => {
+        void sourceFrame.toolbarItems().then(items => {
             items.map(item => toolbar.appendToolbarItem(item));
         });
     }
-    async revealPosition(lineNumber, columnNumber) {
-        this.sourceFrame.revealPosition(lineNumber, columnNumber, true);
+    async revealPosition(position) {
+        this.sourceFrame.revealPosition(position, true);
     }
 }
 //# sourceMappingURL=ResourceSourceFrame.js.map

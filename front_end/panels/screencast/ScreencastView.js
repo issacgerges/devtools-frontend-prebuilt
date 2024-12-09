@@ -31,38 +31,47 @@ import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import { InputModel } from './InputModel.js';
 import screencastViewStyles from './screencastView.css.js';
 const UIStrings = {
     /**
-    *@description Accessible alt text for the screencast canvas rendering of the debug target webpage
-    */
+     *@description Accessible alt text for the screencast canvas rendering of the debug target webpage
+     */
     screencastViewOfDebugTarget: 'Screencast view of debug target',
     /**
-    *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
-    */
+     *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
+     */
     theTabIsInactive: 'The tab is inactive',
     /**
-    *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
-    */
+     *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
+     */
     profilingInProgress: 'Profiling in progress',
     /**
-    *@description Accessible text for the screencast back button
-    */
+     *@description Accessible text for the screencast back button
+     */
     back: 'back',
     /**
-    *@description Accessible text for the screencast forward button
-    */
+     *@description Accessible text for the screencast forward button
+     */
     forward: 'forward',
     /**
-    *@description Accessible text for the screencast reload button
-    */
+     *@description Accessible text for the screencast reload button
+     */
     reload: 'reload',
     /**
-    *@description Accessible text for the address bar in screencast view
-    */
+     *@description Accessible text for the address bar in screencast view
+     */
     addressBar: 'Address bar',
+    /**
+     *@description Accessible text for the touch emulation button.
+     */
+    touchInput: 'Use touch',
+    /**
+     *@description Accessible text for the mouse emulation button.
+     */
+    mouseInput: 'Use mouse',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/screencast/ScreencastView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -107,6 +116,10 @@ export class ScreencastView extends UI.Widget.VBox {
     navigationBar;
     navigationReload;
     navigationProgressBar;
+    touchInputToggle;
+    mouseInputToggle;
+    touchInputToggleIcon;
+    mouseInputToggleIcon;
     historyIndex;
     historyEntries;
     constructor(screenCaptureModel) {
@@ -134,12 +147,12 @@ export class ScreencastView extends UI.Widget.VBox {
         this.glassPaneElement =
             this.canvasContainerElement.createChild('div', 'screencast-glasspane fill hidden');
         this.canvasElement = this.canvasContainerElement.createChild('canvas');
-        UI.ARIAUtils.setAccessibleName(this.canvasElement, i18nString(UIStrings.screencastViewOfDebugTarget));
+        UI.ARIAUtils.setLabel(this.canvasElement, i18nString(UIStrings.screencastViewOfDebugTarget));
         this.canvasElement.tabIndex = 0;
         this.canvasElement.addEventListener('mousedown', this.handleMouseEvent.bind(this), false);
         this.canvasElement.addEventListener('mouseup', this.handleMouseEvent.bind(this), false);
         this.canvasElement.addEventListener('mousemove', this.handleMouseEvent.bind(this), false);
-        this.canvasElement.addEventListener('mousewheel', this.handleMouseEvent.bind(this), false);
+        this.canvasElement.addEventListener('wheel', this.handleWheelEvent.bind(this), false);
         this.canvasElement.addEventListener('click', this.handleMouseEvent.bind(this), false);
         this.canvasElement.addEventListener('contextmenu', this.handleContextMenuEvent.bind(this), false);
         this.canvasElement.addEventListener('keydown', this.handleKeyEvent.bind(this), false);
@@ -163,7 +176,7 @@ export class ScreencastView extends UI.Widget.VBox {
         this.checkerboardPattern = this.createCheckerboardPattern(this.context);
         this.shortcuts[UI.KeyboardShortcut.KeyboardShortcut.makeKey('l', UI.KeyboardShortcut.Modifiers.Ctrl)] =
             this.focusNavigationBar.bind(this);
-        SDK.TargetManager.TargetManager.instance().addEventListener(SDK.TargetManager.Events.SuspendStateChanged, this.onSuspendStateChange, this);
+        SDK.TargetManager.TargetManager.instance().addEventListener("SuspendStateChanged" /* SDK.TargetManager.Events.SuspendStateChanged */, this.onSuspendStateChange, this);
         this.updateGlasspane();
     }
     wasShown() {
@@ -190,10 +203,7 @@ export class ScreencastView extends UI.Widget.VBox {
         dimensions.width *= window.devicePixelRatio;
         dimensions.height *= window.devicePixelRatio;
         // Note: startScreencast width and height are expected to be integers so must be floored.
-        this.screenCaptureModel.startScreencast("jpeg" /* Jpeg */, 80, Math.floor(Math.min(maxImageDimension, dimensions.width)), Math.floor(Math.min(maxImageDimension, dimensions.height)), undefined, this.screencastFrame.bind(this), this.screencastVisibilityChanged.bind(this));
-        for (const emulationModel of SDK.TargetManager.TargetManager.instance().models(SDK.EmulationModel.EmulationModel)) {
-            emulationModel.overrideEmulateTouch(true);
-        }
+        this.screenCaptureModel.startScreencast("jpeg" /* Protocol.Page.StartScreencastRequestFormat.Jpeg */, 80, Math.floor(Math.min(maxImageDimension, dimensions.width)), Math.floor(Math.min(maxImageDimension, dimensions.height)), undefined, this.screencastFrame.bind(this), this.screencastVisibilityChanged.bind(this));
         if (this.overlayModel) {
             this.overlayModel.setHighlighter(this);
         }
@@ -205,7 +215,7 @@ export class ScreencastView extends UI.Widget.VBox {
         this.isCasting = false;
         this.screenCaptureModel.stopScreencast();
         for (const emulationModel of SDK.TargetManager.TargetManager.instance().models(SDK.EmulationModel.EmulationModel)) {
-            emulationModel.overrideEmulateTouch(false);
+            void emulationModel.overrideEmulateTouch(false);
         }
         if (this.overlayModel) {
             this.overlayModel.setHighlighter(null);
@@ -229,7 +239,7 @@ export class ScreencastView extends UI.Widget.VBox {
             this.viewportElement.style.width = metadata.deviceWidth * this.screenZoom + bordersSize + 'px';
             this.viewportElement.style.height = metadata.deviceHeight * this.screenZoom + bordersSize + 'px';
             const data = this.highlightNode ? { node: this.highlightNode, selectorList: undefined } : { clear: true };
-            this.updateHighlightInOverlayAndRepaint(data, this.highlightConfig);
+            void this.updateHighlightInOverlayAndRepaint(data, this.highlightConfig);
         };
         this.imageElement.src = 'data:image/jpg;base64,' + base64Data;
     }
@@ -270,9 +280,9 @@ export class ScreencastView extends UI.Widget.VBox {
         if (!this.pageScaleFactor || !this.domModel) {
             return;
         }
-        if (!this.inspectModeConfig || event.type === 'mousewheel') {
+        if (!this.inspectModeConfig) {
             if (this.inputModel) {
-                this.inputModel.emitTouchFromMouseEvent(event, this.screenOffsetTop, this.screenZoom);
+                this.inputModel.emitMouseEvent(event, this.screenOffsetTop, this.screenZoom);
             }
             event.preventDefault();
             if (event.type === 'mousedown') {
@@ -281,17 +291,30 @@ export class ScreencastView extends UI.Widget.VBox {
             return;
         }
         const position = this.convertIntoScreenSpace(event);
-        const node = await this.domModel.nodeForLocation(Math.floor(position.x / this.pageScaleFactor + this.scrollOffsetX), Math.floor(position.y / this.pageScaleFactor + this.scrollOffsetY), Common.Settings.Settings.instance().moduleSetting('showUAShadowDOM').get());
+        const node = await this.domModel.nodeForLocation(Math.floor(position.x / this.pageScaleFactor + this.scrollOffsetX), Math.floor(position.y / this.pageScaleFactor + this.scrollOffsetY), Common.Settings.Settings.instance().moduleSetting('show-ua-shadow-dom').get());
         if (!node) {
             return;
         }
         if (event.type === 'mousemove') {
-            this.updateHighlightInOverlayAndRepaint({ node, selectorList: undefined }, this.inspectModeConfig);
+            void this.updateHighlightInOverlayAndRepaint({ node, selectorList: undefined }, this.inspectModeConfig);
             this.domModel.overlayModel().nodeHighlightRequested({ nodeId: node.id });
         }
         else if (event.type === 'click') {
             this.domModel.overlayModel().inspectNodeRequested({ backendNodeId: node.backendNodeId() });
         }
+    }
+    async handleWheelEvent(event) {
+        if (this.isGlassPaneActive()) {
+            event.consume();
+            return;
+        }
+        if (!this.pageScaleFactor || !this.domModel) {
+            return;
+        }
+        if (this.inputModel) {
+            this.inputModel.emitWheelEvent(event, this.screenOffsetTop, this.screenZoom);
+        }
+        event.preventDefault();
     }
     handleKeyEvent(event) {
         if (this.isGlassPaneActive()) {
@@ -310,13 +333,14 @@ export class ScreencastView extends UI.Widget.VBox {
         event.consume();
         this.canvasElement.focus();
     }
+    handleBlurEvent() {
+        if (this.inputModel && this.mouseInputToggle?.disabled) {
+            const event = new MouseEvent('mouseup');
+            this.inputModel.emitMouseEvent(event, this.screenOffsetTop, this.screenZoom);
+        }
+    }
     handleContextMenuEvent(event) {
         event.consume(true);
-    }
-    handleBlurEvent(_event) {
-        if (this.inputModel) {
-            this.inputModel.cancelTouch();
-        }
     }
     convertIntoScreenSpace(event) {
         return {
@@ -333,7 +357,7 @@ export class ScreencastView extends UI.Widget.VBox {
         this.deferredCasting = window.setTimeout(this.startCasting.bind(this), 100);
     }
     highlightInOverlay(data, config) {
-        this.updateHighlightInOverlayAndRepaint(data, config);
+        void this.updateHighlightInOverlayAndRepaint(data, config);
     }
     async updateHighlightInOverlayAndRepaint(data, config) {
         let node = null;
@@ -360,7 +384,7 @@ export class ScreencastView extends UI.Widget.VBox {
             return;
         }
         this.node = node;
-        node.boxModel().then(model => {
+        void node.boxModel().then(model => {
             if (!model || !this.pageScaleFactor) {
                 this.repaint();
                 return;
@@ -433,8 +457,8 @@ export class ScreencastView extends UI.Widget.VBox {
         if (!color) {
             return 'transparent';
         }
-        return Common.Color.Color.fromRGBA([color.r, color.g, color.b, color.a !== undefined ? color.a : 1])
-            .asString(Common.Color.Format.RGBA) ||
+        return Common.Color.Legacy.fromRGBA([color.r, color.g, color.b, color.a !== undefined ? color.a : 1])
+            .asString("rgba" /* Common.Color.Format.RGBA */) ||
             '';
     }
     quadToPath(quad) {
@@ -525,9 +549,9 @@ export class ScreencastView extends UI.Widget.VBox {
         }
         this.context.lineTo(boxX, boxY + titleHeight);
         this.context.closePath();
-        this.context.fillStyle = 'rgb(255, 255, 194)';
+        this.context.fillStyle = 'var(--sys-color-yellow-container)';
         this.context.fill();
-        this.context.strokeStyle = 'rgb(128, 128, 128)';
+        this.context.strokeStyle = 'var(--sys-color-outline)';
         this.context.stroke();
         this.context.restore();
         this.titleElement.style.top = (boxY + 3) + 'px';
@@ -541,7 +565,7 @@ export class ScreencastView extends UI.Widget.VBox {
         return { width: width, height: height };
     }
     setInspectMode(mode, config) {
-        this.inspectModeConfig = mode !== "none" /* None */ ? config : null;
+        this.inspectModeConfig = mode !== "none" /* Protocol.Overlay.InspectMode.None */ ? config : null;
         return Promise.resolve();
     }
     highlightFrame(_frameId) {
@@ -552,35 +576,61 @@ export class ScreencastView extends UI.Widget.VBox {
         pattern.width = size * 2;
         pattern.height = size * 2;
         const pctx = pattern.getContext('2d');
-        pctx.fillStyle = 'rgb(195, 195, 195)';
+        pctx.fillStyle = 'var(--sys-color-neutral-outline)';
         pctx.fillRect(0, 0, size * 2, size * 2);
-        pctx.fillStyle = 'rgb(225, 225, 225)';
+        pctx.fillStyle = 'var(--sys-color-surface-variant)';
         pctx.fillRect(0, 0, size, size);
         pctx.fillRect(size, size, size, size);
         return context.createPattern(pattern, 'repeat');
     }
     createNavigationBar() {
         this.navigationBar = this.element.createChild('div', 'screencast-navigation');
-        this.navigationBack = this.navigationBar.createChild('button', 'back');
+        this.navigationBack = this.navigationBar.createChild('button', 'navigation');
+        {
+            const icon = this.navigationBack.appendChild(new IconButton.Icon.Icon());
+            icon.data = { color: 'var(--icon-default)', iconName: 'arrow-back' };
+        }
         this.navigationBack.disabled = true;
-        UI.ARIAUtils.setAccessibleName(this.navigationBack, i18nString(UIStrings.back));
-        this.navigationForward = this.navigationBar.createChild('button', 'forward');
+        UI.ARIAUtils.setLabel(this.navigationBack, i18nString(UIStrings.back));
+        this.navigationForward = this.navigationBar.createChild('button', 'navigation');
+        {
+            const icon = this.navigationForward.appendChild(new IconButton.Icon.Icon());
+            icon.data = { color: 'var(--icon-default)', iconName: 'arrow-forward' };
+        }
         this.navigationForward.disabled = true;
-        UI.ARIAUtils.setAccessibleName(this.navigationForward, i18nString(UIStrings.forward));
-        this.navigationReload = this.navigationBar.createChild('button', 'reload');
-        UI.ARIAUtils.setAccessibleName(this.navigationReload, i18nString(UIStrings.reload));
-        this.navigationUrl = UI.UIUtils.createInput();
-        UI.ARIAUtils.setAccessibleName(this.navigationUrl, i18nString(UIStrings.addressBar));
-        this.navigationBar.appendChild(this.navigationUrl);
+        UI.ARIAUtils.setLabel(this.navigationForward, i18nString(UIStrings.forward));
+        this.navigationReload = this.navigationBar.createChild('button', 'navigation');
+        {
+            const icon = this.navigationReload.appendChild(new IconButton.Icon.Icon());
+            icon.data = { color: 'var(--icon-default)', iconName: 'refresh' };
+        }
+        UI.ARIAUtils.setLabel(this.navigationReload, i18nString(UIStrings.reload));
+        this.navigationUrl = this.navigationBar.appendChild(UI.UIUtils.createInput());
         this.navigationUrl.type = 'text';
+        UI.ARIAUtils.setLabel(this.navigationUrl, i18nString(UIStrings.addressBar));
+        this.mouseInputToggle = this.navigationBar.createChild('button');
+        this.mouseInputToggle.disabled = true;
+        {
+            this.mouseInputToggleIcon = this.mouseInputToggle.appendChild(new IconButton.Icon.Icon());
+            this.mouseInputToggleIcon.data = { color: 'var(--icon-toggled)', iconName: 'mouse' };
+        }
+        UI.ARIAUtils.setLabel(this.mouseInputToggle, i18nString(UIStrings.mouseInput));
+        this.touchInputToggle = this.navigationBar.createChild('button');
+        {
+            this.touchInputToggleIcon = this.touchInputToggle.appendChild(new IconButton.Icon.Icon());
+            this.touchInputToggleIcon.data = { color: 'var(--icon-default)', iconName: 'touch-app' };
+        }
+        UI.ARIAUtils.setLabel(this.touchInputToggle, i18nString(UIStrings.touchInput));
         this.navigationProgressBar = new ProgressTracker(this.resourceTreeModel, this.networkManager, this.navigationBar.createChild('div', 'progress'));
         if (this.resourceTreeModel) {
             this.navigationBack.addEventListener('click', this.navigateToHistoryEntry.bind(this, -1), false);
             this.navigationForward.addEventListener('click', this.navigateToHistoryEntry.bind(this, 1), false);
             this.navigationReload.addEventListener('click', this.navigateReload.bind(this), false);
             this.navigationUrl.addEventListener('keyup', this.navigationUrlKeyUp.bind(this), true);
-            this.requestNavigationHistory();
-            this.resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.MainFrameNavigated, this.requestNavigationHistoryEvent, this);
+            this.touchInputToggle.addEventListener('click', this.#toggleTouchEmulation.bind(this, true), false);
+            this.mouseInputToggle.addEventListener('click', this.#toggleTouchEmulation.bind(this, false), false);
+            void this.requestNavigationHistory();
+            this.resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.PrimaryPageChanged, this.requestNavigationHistoryEvent, this);
             this.resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.CachedResourcesLoaded, this.requestNavigationHistoryEvent, this);
         }
     }
@@ -593,7 +643,7 @@ export class ScreencastView extends UI.Widget.VBox {
             return;
         }
         this.resourceTreeModel.navigateToHistoryEntry(this.historyEntries[newIndex]);
-        this.requestNavigationHistory();
+        void this.requestNavigationHistory();
     }
     navigateReload() {
         if (!this.resourceTreeModel) {
@@ -612,17 +662,34 @@ export class ScreencastView extends UI.Widget.VBox {
         if (!url.match(SCHEME_REGEX)) {
             url = 'http://' + url;
         }
-        // Perform decodeURI in case the user enters an encoded string
-        // decodeURI has no effect on strings that are already decoded
-        // encodeURI ensures an encoded URL is always passed to the backend
-        // This allows the input field to support both encoded and decoded URLs
         if (this.resourceTreeModel) {
-            this.resourceTreeModel.navigate(encodeURI(decodeURI(url)));
+            void this.resourceTreeModel.navigate(url);
         }
         this.canvasElement.focus();
     }
+    #toggleTouchEmulation(value) {
+        if (!this.canvasContainerElement || !this.isCasting || !this.mouseInputToggle || !this.touchInputToggle ||
+            !this.mouseInputToggleIcon || !this.touchInputToggleIcon) {
+            return;
+        }
+        const models = SDK.TargetManager.TargetManager.instance().models(SDK.EmulationModel.EmulationModel);
+        for (const model of models) {
+            void model.overrideEmulateTouch(value);
+        }
+        this.mouseInputToggle.disabled = !value;
+        this.touchInputToggle.disabled = value;
+        this.mouseInputToggleIcon.data = {
+            ...this.mouseInputToggleIcon.data,
+            color: this.mouseInputToggle.disabled ? 'var(--icon-toggled)' : 'var(--icon-default)',
+        };
+        this.touchInputToggleIcon.data = {
+            ...this.touchInputToggleIcon.data,
+            color: this.touchInputToggle.disabled ? 'var(--icon-toggled)' : 'var(--icon-default)',
+        };
+        this.canvasContainerElement.classList.toggle('touchable', value);
+    }
     requestNavigationHistoryEvent() {
-        this.requestNavigationHistory();
+        void this.requestNavigationHistory();
     }
     async requestNavigationHistory() {
         const history = this.resourceTreeModel ? await this.resourceTreeModel.navigationHistory() : null;
@@ -660,7 +727,7 @@ export class ProgressTracker {
     constructor(resourceTreeModel, networkManager, element) {
         this.element = element;
         if (resourceTreeModel) {
-            resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.MainFrameNavigated, this.onMainFrameNavigated, this);
+            resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.PrimaryPageChanged, this.onPrimaryPageChanged, this);
             resourceTreeModel.addEventListener(SDK.ResourceTreeModel.Events.Load, this.onLoad, this);
         }
         if (networkManager) {
@@ -672,7 +739,7 @@ export class ProgressTracker {
         this.finishedRequests = 0;
         this.maxDisplayedProgress = 0;
     }
-    onMainFrameNavigated() {
+    onPrimaryPageChanged() {
         this.requestIds = new Map();
         this.startedRequests = 0;
         this.finishedRequests = 0;
@@ -682,7 +749,7 @@ export class ProgressTracker {
     onLoad() {
         this.requestIds = null;
         this.updateProgress(1); // Display 100% progress on load, hide it in 0.5s.
-        setTimeout(() => {
+        window.setTimeout(() => {
             if (!this.navigationProgressVisible()) {
                 this.displayProgress(0);
             }
@@ -714,7 +781,7 @@ export class ProgressTracker {
             return;
         }
         ++this.finishedRequests;
-        setTimeout(() => {
+        window.setTimeout(() => {
             this.updateProgress(this.finishedRequests / this.startedRequests * 0.9); // Finished requests drive the progress up to 90%.
         }, 500); // Delay to give the new requests time to start. This makes the progress smoother.
     }

@@ -3,102 +3,137 @@
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import throttlingSettingsTabStyles from './throttlingSettingsTab.css.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
+import throttlingSettingsTabStyles from './throttlingSettingsTab.css.js';
 const UIStrings = {
     /**
-    *@description Text in Throttling Settings Tab of the Network panel
-    */
+     *@description Text in Throttling Settings Tab of the Network panel
+     */
     networkThrottlingProfiles: 'Network Throttling Profiles',
     /**
-    *@description Text of add conditions button in Throttling Settings Tab of the Network panel
-    */
+     *@description Text of add conditions button in Throttling Settings Tab of the Network panel
+     */
     addCustomProfile: 'Add custom profile...',
     /**
-    *@description A value in milliseconds
-    *@example {3} PH1
-    */
+     *@description A value in milliseconds
+     *@example {3} PH1
+     */
     dms: '{PH1} `ms`',
     /**
-    *@description Text in Throttling Settings Tab of the Network panel
-    */
+     *@description Text in Throttling Settings Tab of the Network panel
+     */
     profileName: 'Profile Name',
     /**
-    * @description Label for a textbox that sets the download speed in the Throttling Settings Tab.
-    * Noun, short for 'download speed'.
-    */
+     * @description Label for a textbox that sets the download speed in the Throttling Settings Tab.
+     * Noun, short for 'download speed'.
+     */
     download: 'Download',
     /**
-    * @description Label for a textbox that sets the upload speed in the Throttling Settings Tab.
-    * Noun, short for 'upload speed'.
-    */
+     * @description Label for a textbox that sets the upload speed in the Throttling Settings Tab.
+     * Noun, short for 'upload speed'.
+     */
     upload: 'Upload',
     /**
-    * @description Label for a textbox that sets the latency in the Throttling Settings Tab.
-    */
+     * @description Label for a textbox that sets the latency in the Throttling Settings Tab.
+     */
     latency: 'Latency',
     /**
-    *@description Text in Throttling Settings Tab of the Network panel
-    */
+     * @description Label for a textbox that sets the packet loss percentage for real-time networks in the Throttling Settings Tab.
+     */
+    packetLoss: 'Packet Loss',
+    /**
+     * @description Label for a textbox serving as a unit in the Throttling Settings Tab for the field Packet Loss column.
+     */
+    percent: 'percent',
+    /**
+     * @description Label for a textbox that sets the maximum packet queue length for real-time networks in the Throttling Settings Tab.
+     */
+    packetQueueLength: 'Packet Queue Length',
+    /**
+     * @description Label for a checkbox that allows packet reordering in the Throttling Settings Tab.
+     */
+    packetReordering: 'Packet Reordering',
+    /**
+     * @description Label for a textbox serving as a unit in the Throttling Settings Tab for the field Packet Queue Length column.
+     */
+    packet: 'packet',
+    /**
+     *@description Text in Throttling Settings Tab of the Network panel
+     */
     optional: 'optional',
     /**
-    *@description Error message for Profile Name input in Throtting pane of the Settings
-    *@example {49} PH1
-    */
+     *@description Error message for Profile Name input in Throtting pane of the Settings
+     *@example {49} PH1
+     */
     profileNameCharactersLengthMust: 'Profile Name characters length must be between 1 to {PH1} inclusive',
     /**
-    *@description Error message for Download and Upload inputs in Throttling pane of the Settings
-    *@example {Download} PH1
-    *@example {0} PH2
-    *@example {10000000} PH3
-    */
+     *@description Error message for Download and Upload inputs in Throttling pane of the Settings
+     *@example {Download} PH1
+     *@example {0} PH2
+     *@example {10000000} PH3
+     */
     sMustBeANumberBetweenSkbsToSkbs: '{PH1} must be a number between {PH2} `kbit/s` to {PH3} `kbit/s` inclusive',
     /**
-    *@description Error message for Latency input in Throttling pane of the Settings
-    *@example {0} PH1
-    *@example {1000000} PH2
-    */
+     *@description Error message for Latency input in Throttling pane of the Settings
+     *@example {0} PH1
+     *@example {1000000} PH2
+     */
     latencyMustBeAnIntegerBetweenSms: 'Latency must be an integer between {PH1} `ms` to {PH2} `ms` inclusive',
     /**
-    * @description Text in Throttling Settings Tab of the Network panel, indicating the download or
-    * upload speed that will be applied in kilobits per second.
-    * @example {25} PH1
-    */
+     *@description Error message for Packet Loss input in Throttling pane of the Settings
+     *@example {0} PH1
+     *@example {100} PH2
+     */
+    packetLossMustBeAnIntegerBetweenSpct: 'Packet Loss must be a number between {PH1} `%` to {PH2} `%` inclusive',
+    /**
+     *@description Error message for Packet Queue Length input in Throttling pane of the Settings
+     */
+    packetQueueLengthMustBeAnIntegerGreaterOrEqualToZero: 'Packet Queue Length must be greater or equal to 0',
+    /**
+     * @description Text in Throttling Settings Tab of the Network panel, indicating the download or
+     * upload speed that will be applied in kilobits per second.
+     * @example {25} PH1
+     */
     dskbits: '{PH1} `kbit/s`',
     /**
-    * @description Text in Throttling Settings Tab of the Network panel, indicating the download or
-    * upload speed that will be applied in megabits per second.
-    * @example {25.4} PH1
-    */
+     * @description Text in Throttling Settings Tab of the Network panel, indicating the download or
+     * upload speed that will be applied in megabits per second.
+     * @example {25.4} PH1
+     */
     fsmbits: '{PH1} `Mbit/s`',
+    /**
+     * @description Label for the column Packet Reordering to indicate it is enabled in the Throttling Settings Tab.
+     */
+    on: 'On',
+    /**
+     * @description Label for the column Packet Reordering to indicate it is disabled in the Throttling Settings Tab.
+     */
+    off: 'Off',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/ThrottlingSettingsTab.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
-let throttlingSettingsTabInstance;
 export class ThrottlingSettingsTab extends UI.Widget.VBox {
     list;
     customSetting;
     editor;
     constructor() {
         super(true);
+        this.element.setAttribute('jslog', `${VisualLogging.pane('throttling-conditions')}`);
         const header = this.contentElement.createChild('div', 'header');
         header.textContent = i18nString(UIStrings.networkThrottlingProfiles);
         UI.ARIAUtils.markAsHeading(header, 1);
-        const addButton = UI.UIUtils.createTextButton(i18nString(UIStrings.addCustomProfile), this.addButtonClicked.bind(this), 'add-conditions-button');
+        const addButton = UI.UIUtils.createTextButton(i18nString(UIStrings.addCustomProfile), this.addButtonClicked.bind(this), {
+            className: 'add-conditions-button',
+            jslogContext: 'network.add-conditions',
+        });
         this.contentElement.appendChild(addButton);
         this.list = new UI.ListWidget.ListWidget(this);
         this.list.element.classList.add('conditions-list');
         this.list.show(this.contentElement);
-        this.customSetting = Common.Settings.Settings.instance().moduleSetting('customNetworkConditions');
+        this.customSetting = Common.Settings.Settings.instance().moduleSetting('custom-network-conditions');
         this.customSetting.addChangeListener(this.conditionsUpdated, this);
         this.setDefaultFocusedElement(addButton);
-    }
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!throttlingSettingsTabInstance || forceNew) {
-            throttlingSettingsTabInstance = new ThrottlingSettingsTab();
-        }
-        return throttlingSettingsTabInstance;
     }
     wasShown() {
         super.wasShown();
@@ -115,7 +150,7 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         this.list.appendSeparator();
     }
     addButtonClicked() {
-        this.list.addNewItem(this.customSetting.get().length, { title: () => '', download: -1, upload: -1, latency: 0 });
+        this.list.addNewItem(this.customSetting.get().length, { title: () => '', download: -1, upload: -1, latency: 0, packetLoss: 0, packetReordering: false });
     }
     renderItem(conditions, _editable) {
         const element = document.createElement('div');
@@ -132,6 +167,13 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         element.createChild('div', 'conditions-list-separator');
         element.createChild('div', 'conditions-list-text').textContent =
             i18nString(UIStrings.dms, { PH1: conditions.latency });
+        element.createChild('div', 'conditions-list-separator');
+        element.createChild('div', 'conditions-list-text').textContent = percentText(conditions.packetLoss ?? 0);
+        element.createChild('div', 'conditions-list-separator');
+        element.createChild('div', 'conditions-list-text').textContent = String(conditions.packetQueueLength ?? 0);
+        element.createChild('div', 'conditions-list-separator');
+        element.createChild('div', 'conditions-list-text').textContent =
+            conditions.packetReordering ? i18nString(UIStrings.on) : i18nString(UIStrings.off);
         return element;
     }
     removeItemRequested(_item, index) {
@@ -152,6 +194,12 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         conditions.upload = upload ? parseInt(upload, 10) * (1000 / 8) : -1;
         const latency = editor.control('latency').value.trim();
         conditions.latency = latency ? parseInt(latency, 10) : 0;
+        const packetLoss = editor.control('packetLoss').value.trim();
+        conditions.packetLoss = packetLoss ? parseFloat(packetLoss) : 0;
+        const packetQueueLength = editor.control('packetQueueLength').value.trim();
+        conditions.packetQueueLength = packetQueueLength ? parseFloat(packetQueueLength) : 0;
+        const packetReordering = editor.control('packetReordering').checked;
+        conditions.packetReordering = packetReordering;
         const list = this.customSetting.get();
         if (isNew) {
             list.push(conditions);
@@ -164,6 +212,10 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         editor.control('download').value = conditions.download <= 0 ? '' : String(conditions.download / (1000 / 8));
         editor.control('upload').value = conditions.upload <= 0 ? '' : String(conditions.upload / (1000 / 8));
         editor.control('latency').value = conditions.latency ? String(conditions.latency) : '';
+        editor.control('packetLoss').value = conditions.packetLoss ? String(conditions.packetLoss) : '';
+        editor.control('packetQueueLength').value =
+            conditions.packetQueueLength ? String(conditions.packetQueueLength) : '';
+        editor.control('packetReordering').checked = conditions.packetReordering ?? false;
         return editor;
     }
     createEditor() {
@@ -193,15 +245,30 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         const latencyStr = i18nString(UIStrings.latency);
         const latencyLabelText = latencyLabel.createChild('div', 'conditions-list-title-text');
         latencyLabelText.textContent = latencyStr;
+        titles.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        const packetLossLabel = titles.createChild('div', 'conditions-list-text');
+        const packetLossStr = i18nString(UIStrings.packetLoss);
+        const packetLossLabelText = packetLossLabel.createChild('div', 'conditions-list-title-text');
+        packetLossLabelText.textContent = packetLossStr;
+        titles.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        const packetQueueLengthLabel = titles.createChild('div', 'conditions-list-text');
+        const packetQueueLengthStr = i18nString(UIStrings.packetQueueLength);
+        const packetQueueLengthLabelText = packetQueueLengthLabel.createChild('div', 'conditions-list-title-text');
+        packetQueueLengthLabelText.textContent = packetQueueLengthStr;
+        titles.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        const packetReorderingLabel = titles.createChild('div', 'conditions-list-text');
+        const packetReorderingStr = i18nString(UIStrings.packetReordering);
+        const packetReorderingText = packetReorderingLabel.createChild('div', 'conditions-list-title-text');
+        packetReorderingText.textContent = packetReorderingStr;
         const fields = content.createChild('div', 'conditions-edit-row');
         const nameInput = editor.createInput('title', 'text', '', titleValidator);
-        UI.ARIAUtils.setAccessibleName(nameInput, nameStr);
+        UI.ARIAUtils.setLabel(nameInput, nameStr);
         fields.createChild('div', 'conditions-list-text conditions-list-title').appendChild(nameInput);
         fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
         let cell = fields.createChild('div', 'conditions-list-text');
         const downloadInput = editor.createInput('download', 'text', i18n.i18n.lockedString('kbit/s'), throughputValidator);
         cell.appendChild(downloadInput);
-        UI.ARIAUtils.setAccessibleName(downloadInput, downloadStr);
+        UI.ARIAUtils.setLabel(downloadInput, downloadStr);
         const downloadOptional = cell.createChild('div', 'conditions-edit-optional');
         const optionalStr = i18nString(UIStrings.optional);
         downloadOptional.textContent = optionalStr;
@@ -209,7 +276,7 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
         cell = fields.createChild('div', 'conditions-list-text');
         const uploadInput = editor.createInput('upload', 'text', i18n.i18n.lockedString('kbit/s'), throughputValidator);
-        UI.ARIAUtils.setAccessibleName(uploadInput, uploadStr);
+        UI.ARIAUtils.setLabel(uploadInput, uploadStr);
         cell.appendChild(uploadInput);
         const uploadOptional = cell.createChild('div', 'conditions-edit-optional');
         uploadOptional.textContent = optionalStr;
@@ -217,11 +284,32 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
         fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
         cell = fields.createChild('div', 'conditions-list-text');
         const latencyInput = editor.createInput('latency', 'text', i18n.i18n.lockedString('ms'), latencyValidator);
-        UI.ARIAUtils.setAccessibleName(latencyInput, latencyStr);
+        UI.ARIAUtils.setLabel(latencyInput, latencyStr);
         cell.appendChild(latencyInput);
         const latencyOptional = cell.createChild('div', 'conditions-edit-optional');
         latencyOptional.textContent = optionalStr;
         UI.ARIAUtils.setDescription(latencyInput, optionalStr);
+        fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        cell = fields.createChild('div', 'conditions-list-text');
+        const packetLossInput = editor.createInput('packetLoss', 'text', i18n.i18n.lockedString('percent'), packetLossValidator);
+        UI.ARIAUtils.setLabel(packetLossInput, packetLossStr);
+        cell.appendChild(packetLossInput);
+        const packetLossOptional = cell.createChild('div', 'conditions-edit-optional');
+        packetLossOptional.textContent = optionalStr;
+        UI.ARIAUtils.setDescription(packetLossInput, optionalStr);
+        fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        cell = fields.createChild('div', 'conditions-list-text');
+        const packetQueueLengthInput = editor.createInput('packetQueueLength', 'text', i18nString(UIStrings.packet), packetQueueLengthValidator);
+        UI.ARIAUtils.setLabel(packetQueueLengthInput, packetQueueLengthStr);
+        cell.appendChild(packetQueueLengthInput);
+        const packetQueueLengthOptional = cell.createChild('div', 'conditions-edit-optional');
+        packetQueueLengthOptional.textContent = optionalStr;
+        UI.ARIAUtils.setDescription(packetQueueLengthInput, optionalStr);
+        fields.createChild('div', 'conditions-list-separator conditions-list-separator-invisible');
+        cell = fields.createChild('div', 'conditions-list-text');
+        const packetReorderingInput = editor.createInput('packetReordering', 'checkbox', i18nString(UIStrings.percent), packetReorderingValidator);
+        UI.ARIAUtils.setLabel(packetReorderingInput, packetLossStr);
+        cell.appendChild(packetReorderingInput);
         return editor;
         function titleValidator(_item, _index, input) {
             const maxLength = 49;
@@ -258,6 +346,32 @@ export class ThrottlingSettingsTab extends UI.Widget.VBox {
             }
             return { valid, errorMessage: undefined };
         }
+        function packetLossValidator(_item, _index, input) {
+            const minPacketLoss = 0;
+            const maxPacketLoss = 100;
+            const value = input.value.trim();
+            const parsedValue = Number(value);
+            const valid = parsedValue >= minPacketLoss && parsedValue <= maxPacketLoss;
+            if (!valid) {
+                const errorMessage = i18nString(UIStrings.packetLossMustBeAnIntegerBetweenSpct, { PH1: minPacketLoss, PH2: maxPacketLoss });
+                return { valid, errorMessage };
+            }
+            return { valid, errorMessage: undefined };
+        }
+        function packetQueueLengthValidator(_item, _index, input) {
+            const minPacketQueueLength = 0;
+            const value = input.value.trim();
+            const parsedValue = Number(value);
+            const valid = parsedValue >= minPacketQueueLength;
+            if (!valid) {
+                const errorMessage = i18nString(UIStrings.packetQueueLengthMustBeAnIntegerGreaterOrEqualToZero);
+                return { valid, errorMessage };
+            }
+            return { valid, errorMessage: undefined };
+        }
+        function packetReorderingValidator(_item, _index, _input) {
+            return { valid: true, errorMessage: undefined };
+        }
     }
 }
 function throughputText(throughput) {
@@ -275,5 +389,11 @@ function throughputText(throughput) {
     // TODO(petermarshall): Figure out if there is a difference we need to tell i18n about
     // for these two versions: one with decimal places and one without.
     return i18nString(UIStrings.fsmbits, { PH1: (throughputInKbps / 1000) | 0 });
+}
+function percentText(percent) {
+    if (percent < 0) {
+        return '';
+    }
+    return String(percent) + '%';
 }
 //# sourceMappingURL=ThrottlingSettingsTab.js.map

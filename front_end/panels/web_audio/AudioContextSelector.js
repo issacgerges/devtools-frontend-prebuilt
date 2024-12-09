@@ -8,13 +8,13 @@ import * as UI from '../../ui/legacy/legacy.js';
 import audioContextSelectorStyles from './audioContextSelector.css.js';
 const UIStrings = {
     /**
-    *@description Text that shows there is no recording
-    */
+     *@description Text that shows there is no recording
+     */
     noRecordings: '(no recordings)',
     /**
-    *@description Label prefix for an audio context selection
-    *@example {realtime (1e03ec)} PH1
-    */
+     *@description Label prefix for an audio context selection
+     *@example {realtime (1e03ec)} PH1
+     */
     audioContextS: 'Audio context: {PH1}',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/web_audio/AudioContextSelector.ts', UIStrings);
@@ -29,12 +29,12 @@ export class AudioContextSelector extends Common.ObjectWrapper.ObjectWrapper {
         super();
         this.placeholderText = i18nString(UIStrings.noRecordings);
         this.items = new UI.ListModel.ListModel();
-        this.dropDown = new UI.SoftDropDown.SoftDropDown(this.items, this);
+        this.dropDown = new UI.SoftDropDown.SoftDropDown(this.items, this, 'audio-context');
         this.dropDown.setPlaceholderText(this.placeholderText);
         this.toolbarItemInternal = new UI.Toolbar.ToolbarItem(this.dropDown.element);
         this.toolbarItemInternal.setEnabled(false);
         this.toolbarItemInternal.setTitle(i18nString(UIStrings.audioContextS, { PH1: this.placeholderText }));
-        this.items.addEventListener(UI.ListModel.Events.ItemsReplaced, this.onListItemReplaced, this);
+        this.items.addEventListener("ItemsReplaced" /* UI.ListModel.Events.ItemsReplaced */, this.onListItemReplaced, this);
         this.toolbarItemInternal.element.classList.add('toolbar-has-dropdown');
         this.selectedContextInternal = null;
     }
@@ -71,7 +71,7 @@ export class AudioContextSelector extends Common.ObjectWrapper.ObjectWrapper {
     }
     createElementForItem(item) {
         const element = document.createElement('div');
-        const shadowRoot = UI.Utils.createShadowRootWithCoreStyles(element, { cssFile: [audioContextSelectorStyles], delegatesFocus: undefined });
+        const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(element, { cssFile: [audioContextSelectorStyles], delegatesFocus: undefined });
         const title = shadowRoot.createChild('div', 'title');
         UI.UIUtils.createTextChild(title, Platform.StringUtilities.trimEndWithMaxLength(this.titleFor(item), 100));
         return element;
@@ -102,7 +102,7 @@ export class AudioContextSelector extends Common.ObjectWrapper.ObjectWrapper {
             this.selectedContextInternal = item;
             this.toolbarItemInternal.setTitle(i18nString(UIStrings.audioContextS, { PH1: this.titleFor(item) }));
         }
-        this.dispatchEventToListeners("ContextSelected" /* ContextSelected */, item);
+        this.dispatchEventToListeners("ContextSelected" /* Events.ContextSelected */, item);
     }
     reset() {
         this.items.replaceAll([]);

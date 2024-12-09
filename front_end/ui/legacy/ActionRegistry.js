@@ -1,7 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import { getRegisteredActionExtensions } from './ActionRegistration.js';
+import { getRegisteredActionExtensions, reset as resetActionRegistrations } from './ActionRegistration.js';
 import { Context } from './Context.js';
 let actionRegistryInstance;
 export class ActionRegistry {
@@ -19,6 +19,10 @@ export class ActionRegistry {
     }
     static removeInstance() {
         actionRegistryInstance = undefined;
+    }
+    static reset() {
+        ActionRegistry.removeInstance();
+        resetActionRegistrations();
     }
     registerActions() {
         for (const action of getRegisteredActionExtensions()) {
@@ -60,8 +64,15 @@ export class ActionRegistry {
             return false;
         }
     }
-    action(actionId) {
-        return this.actionsById.get(actionId) || null;
+    hasAction(actionId) {
+        return this.actionsById.has(actionId);
+    }
+    getAction(actionId) {
+        const action = this.actionsById.get(actionId);
+        if (action) {
+            return action;
+        }
+        throw new Error(`Cannot find registered action with ID '${actionId}'`);
     }
 }
 //# sourceMappingURL=ActionRegistry.js.map

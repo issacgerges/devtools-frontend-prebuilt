@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '../../entrypoints/heap_snapshot_worker/heap_snapshot_worker-legacy.js';
-import '../test_runner/test_runner.js';
-import '../../panels/profiler/profiler-legacy.js';
-import '../../ui/legacy/components/data_grid/data_grid-legacy.js';
+import * as SDK from '../../core/sdk/sdk.js';
+import * as HeapSnapshotWorker from '../../entrypoints/heap_snapshot_worker/heap_snapshot_worker.js';
+import * as Profiler from '../../panels/profiler/profiler.js';
+import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
+import * as UI from '../../ui/legacy/legacy.js';
+import {TestRunner} from '../test_runner/test_runner.js';
 
 /**
  * @fileoverview using private properties isn't a Closure violation in tests.
  */
-self.HeapProfilerTestRunner = self.HeapProfilerTestRunner || {};
+export const HeapProfilerTestRunner = {};
 
 HeapProfilerTestRunner.createHeapSnapshotMockFactories = function() {
   HeapProfilerTestRunner.createJSHeapSnapshotMockObject = function() {
-    return {
+    const result = {
       rootNodeIndex: 0,
       nodeTypeOffset: 0,
       nodeNameOffset: 1,
@@ -34,10 +36,14 @@ HeapProfilerTestRunner.createHeapSnapshotMockFactories = function() {
       containmentEdges: new Uint32Array([2, 6, 3, 1, 7, 6, 0, 1, 6, 1, 8, 9, 1, 9, 9, 1, 10, 12, 1, 11, 15]),
       strings: ['', 'A', 'B', 'C', 'D', 'E', 'a', 'b', 'ac', 'bc', 'bd', 'ce'],
       firstEdgeIndexes: new Uint32Array([0, 6, 12, 18, 21, 21, 21]),
-      createNode: HeapSnapshotWorker.JSHeapSnapshot.prototype.createNode,
-      createEdge: HeapSnapshotWorker.JSHeapSnapshot.prototype.createEdge,
-      createRetainingEdge: HeapSnapshotWorker.JSHeapSnapshot.prototype.createRetainingEdge
+      createNode: HeapSnapshotWorker.HeapSnapshot.JSHeapSnapshot.prototype.createNode,
+      createEdge: HeapSnapshotWorker.HeapSnapshot.JSHeapSnapshot.prototype.createEdge,
+      createRetainingEdge: HeapSnapshotWorker.HeapSnapshot.JSHeapSnapshot.prototype.createRetainingEdge
     };
+    result.nodes.getValue = result.containmentEdges.getValue = function(i) {
+      return this[i];
+    };
+    return result;
   };
 
   HeapProfilerTestRunner.createHeapSnapshotMockRaw = function() {
@@ -76,6 +82,9 @@ HeapProfilerTestRunner.createHeapSnapshotMockFactories = function() {
   HeapProfilerTestRunner.postprocessHeapSnapshotMock = function(mock) {
     mock.nodes = new Uint32Array(mock.nodes);
     mock.edges = new Uint32Array(mock.edges);
+    mock.nodes.getValue = mock.edges.getValue = function(i) {
+      return this[i];
+    };
     return mock;
   };
 
@@ -273,7 +282,8 @@ HeapProfilerTestRunner.createHeapSnapshotMockFactories = function() {
 
     createJSHeapSnapshot: function() {
       const parsedSnapshot = HeapProfilerTestRunner.postprocessHeapSnapshotMock(this.generateSnapshot());
-      return new HeapSnapshotWorker.JSHeapSnapshot(parsedSnapshot, new HeapSnapshotWorker.HeapSnapshotProgress());
+      return new HeapSnapshotWorker.HeapSnapshot.JSHeapSnapshot(
+          parsedSnapshot, new HeapSnapshotWorker.HeapSnapshot.HeapSnapshotProgress());
     },
 
     registerNode: function(node) {
@@ -347,20 +357,25 @@ HeapProfilerTestRunner.createHeapSnapshotMockFactories();
 
 HeapProfilerTestRunner.startProfilerTest = function(callback) {
   TestRunner.addResult('Profiler was enabled.');
-  HeapProfilerTestRunner.panelReset = TestRunner.override(UI.panels.heap_profiler, 'reset', function() {}, true);
-  TestRunner.addSniffer(UI.panels.heap_profiler, 'addProfileHeader', HeapProfilerTestRunner.profileHeaderAdded, true);
-  TestRunner.addSniffer(Profiler.ProfileView.prototype, 'refresh', HeapProfilerTestRunner.profileViewRefresh, true);
-  TestRunner.addSniffer(Profiler.HeapSnapshotView.prototype, 'show', HeapProfilerTestRunner.snapshotViewShown, true);
+  HeapProfilerTestRunner.panelReset =
+      TestRunner.override(Profiler.HeapProfilerPanel.HeapProfilerPanel.instance(), 'reset', function() {}, true);
+  TestRunner.addSniffer(
+      Profiler.HeapProfilerPanel.HeapProfilerPanel.instance(), 'addProfileHeader',
+      HeapProfilerTestRunner.profileHeaderAdded, true);
+  TestRunner.addSniffer(
+      Profiler.ProfileView.ProfileView.prototype, 'refresh', HeapProfilerTestRunner.profileViewRefresh, true);
+  TestRunner.addSniffer(
+      Profiler.HeapSnapshotView.HeapSnapshotView.prototype, 'show', HeapProfilerTestRunner.snapshotViewShown, true);
 
-  Profiler.HeapSnapshotContainmentDataGrid.prototype.defaultPopulateCount = function() {
+  Profiler.HeapSnapshotDataGrids.HeapSnapshotContainmentDataGrid.prototype.defaultPopulateCount = function() {
     return 10;
   };
 
-  Profiler.HeapSnapshotConstructorsDataGrid.prototype.defaultPopulateCount = function() {
+  Profiler.HeapSnapshotDataGrids.HeapSnapshotConstructorsDataGrid.prototype.defaultPopulateCount = function() {
     return 10;
   };
 
-  Profiler.HeapSnapshotDiffDataGrid.prototype.defaultPopulateCount = function() {
+  Profiler.HeapSnapshotDataGrids.HeapSnapshotDiffDataGrid.prototype.defaultPopulateCount = function() {
     return 5;
   };
 
@@ -394,7 +409,7 @@ HeapProfilerTestRunner.runHeapSnapshotTestSuite = function(testSuite) {
     TestRunner.addResult(
         'Running: ' +
         /function\s([^(]*)/.exec(nextTest)[1]);
-    HeapProfilerTestRunner.panelReset.call(UI.panels.heap_profiler);
+    HeapProfilerTestRunner.panelReset.call(Profiler.HeapProfilerPanel.HeapProfilerPanel.instance());
     TestRunner.safeWrap(nextTest)(runner, runner);
   }
 
@@ -474,13 +489,13 @@ HeapProfilerTestRunner.checkArrayIsSorted = function(contents, sortType, sortOrd
 
 HeapProfilerTestRunner.clickColumn = function(column, callback) {
   callback = TestRunner.safeWrap(callback);
-  const cell = this.currentGrid().headerTableHeaders[column.id];
+  const cell = this.currentGrid().dataTableHeaders[column.id];
 
   const event = {target: cell};
 
   function sortingComplete() {
     HeapProfilerTestRunner.currentGrid().removeEventListener(
-        Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, this);
+        Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, this);
     TestRunner.assertEquals(column.id, this.currentGrid().sortColumnId(), 'unexpected sorting');
     column.sort = this.currentGrid().sortOrder();
 
@@ -492,7 +507,7 @@ HeapProfilerTestRunner.clickColumn = function(column, callback) {
   }
 
   HeapProfilerTestRunner.currentGrid().addEventListener(
-      Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, this);
+      Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, this);
   this.currentGrid().clickInHeaderCell(event);
 };
 
@@ -503,13 +518,15 @@ HeapProfilerTestRunner.clickRowAndGetRetainers = function(row, callback) {
 
   this.currentGrid().mouseDownInDataTable(event);
   const rootNode = HeapProfilerTestRunner.currentProfileView().retainmentDataGrid.rootNode();
-  rootNode.once(Profiler.HeapSnapshotGridNode.Events.PopulateComplete).then(() => callback(rootNode));
+  rootNode.once(Profiler.HeapSnapshotGridNodes.HeapSnapshotGridNode.Events.PopulateComplete)
+      .then(() => callback(rootNode));
 };
 
 HeapProfilerTestRunner.clickShowMoreButton = function(buttonName, row, callback) {
   callback = TestRunner.safeWrap(callback);
   const parent = row.parent;
-  parent.once(Profiler.HeapSnapshotGridNode.Events.PopulateComplete).then(() => setTimeout(() => callback(parent), 0));
+  parent.once(Profiler.HeapSnapshotGridNodes.HeapSnapshotGridNode.Events.PopulateComplete)
+      .then(() => setTimeout(() => callback(parent), 0));
   row[buttonName].click();
 };
 
@@ -554,7 +571,8 @@ HeapProfilerTestRunner.countDataRows = function(row, filter) {
 
 HeapProfilerTestRunner.expandRow = function(row, callback) {
   callback = TestRunner.safeWrap(callback);
-  row.once(Profiler.HeapSnapshotGridNode.Events.PopulateComplete).then(() => setTimeout(() => callback(row), 0));
+  row.once(Profiler.HeapSnapshotGridNodes.HeapSnapshotGridNode.Events.PopulateComplete)
+      .then(() => setTimeout(() => callback(row), 0));
 
   (function expand() {
     if (row.hasChildren()) {
@@ -613,7 +631,7 @@ HeapProfilerTestRunner.findMatchingRow = function(matcher, parent) {
 HeapProfilerTestRunner.switchToView = function(title, callback) {
   return new Promise(resolve => {
     callback = TestRunner.safeWrap(callback);
-    const view = UI.panels.heap_profiler.visibleView;
+    const view = Profiler.HeapProfilerPanel.HeapProfilerPanel.instance().visibleView;
     view.changePerspectiveAndWait(title).then(callback).then(resolve);
     HeapProfilerTestRunner.currentGrid().scrollContainer.style.height = '10000px';
   });
@@ -624,31 +642,33 @@ HeapProfilerTestRunner.takeAndOpenSnapshot = async function(generator, callback)
   const snapshot = generator();
   const profileType = Profiler.ProfileTypeRegistry.instance.heapSnapshotProfileType;
 
-  function pushGeneratedSnapshot(reportProgress) {
+  async function pushGeneratedSnapshot(reportProgress) {
     if (reportProgress) {
       profileType.reportHeapSnapshotProgress({data: {done: 50, total: 100, finished: false}});
       profileType.reportHeapSnapshotProgress({data: {done: 100, total: 100, finished: true}});
     }
     snapshot.snapshot.typeId = 'HEAP';
     profileType.addHeapSnapshotChunk({data: JSON.stringify(snapshot)});
-    return Promise.resolve();
   }
 
   HeapProfilerTestRunner.takeAndOpenSnapshotCallback = callback;
   TestRunner.override(TestRunner.HeapProfilerAgent, 'invoke_takeHeapSnapshot', pushGeneratedSnapshot);
-  if (!self.UI.context.flavor(SDK.HeapProfilerModel)) {
-    await new Promise(resolve => self.UI.context.addFlavorChangeListener(SDK.HeapProfilerModel, resolve));
+  if (!UI.Context.Context.instance().flavor(SDK.HeapProfilerModel.HeapProfilerModel)) {
+    await new Promise(
+        resolve =>
+            UI.Context.Context.instance().addFlavorChangeListener(SDK.HeapProfilerModel.HeapProfilerModel, resolve));
   }
   profileType.takeHeapSnapshot();
 };
 
 /**
- * @return {!Promise<!Profiler.HeapProfileHeader>}
+ * @return {!Promise<!Profiler.HeapSnapshotView.HeapProfileHeader>}
  */
 HeapProfilerTestRunner.takeSnapshotPromise = function() {
   return new Promise(resolve => {
     const heapProfileType = Profiler.ProfileTypeRegistry.instance.heapSnapshotProfileType;
-    heapProfileType.addEventListener(Profiler.HeapSnapshotProfileType.SnapshotReceived, finishHeapSnapshot);
+    heapProfileType.addEventListener(
+        Profiler.HeapSnapshotView.HeapSnapshotProfileType.SnapshotReceived, finishHeapSnapshot);
     heapProfileType.takeHeapSnapshot();
 
     function finishHeapSnapshot() {
@@ -660,14 +680,15 @@ HeapProfilerTestRunner.takeSnapshotPromise = function() {
         throw `FAILED: wrong number of recorded profiles was found. profiles.length = ${profiles.length}`;
       }
       const profile = profiles[0];
-      UI.panels.heap_profiler.showProfile(profile);
+      Profiler.HeapProfilerPanel.HeapProfilerPanel.instance().showProfile(profile);
 
       const dataGrid = HeapProfilerTestRunner.currentProfileView().dataGrid;
-      dataGrid.addEventListener(Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
+      dataGrid.addEventListener(
+          Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
 
       function sortingComplete() {
         dataGrid.removeEventListener(
-            Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
+            Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
         resolve(profile);
       }
     }
@@ -679,7 +700,7 @@ HeapProfilerTestRunner.viewColumns = function() {
 };
 
 HeapProfilerTestRunner.currentProfileView = function() {
-  return UI.panels.heap_profiler.visibleView;
+  return Profiler.HeapProfilerPanel.HeapProfilerPanel.instance().visibleView;
 };
 
 HeapProfilerTestRunner.currentGrid = function() {
@@ -693,11 +714,13 @@ HeapProfilerTestRunner.snapshotViewShown = function() {
     const dataGrid = this.dataGrid;
 
     function sortingComplete() {
-      dataGrid.removeEventListener(Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
+      dataGrid.removeEventListener(
+          Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
       callback();
     }
 
-    dataGrid.addEventListener(Profiler.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
+    dataGrid.addEventListener(
+        Profiler.HeapSnapshotDataGrids.HeapSnapshotSortableDataGridEvents.SortingComplete, sortingComplete, null);
   }
 };
 
@@ -708,13 +731,13 @@ HeapProfilerTestRunner.showProfileWhenAdded = function(title) {
 
 HeapProfilerTestRunner.profileHeaderAdded = function(profile) {
   if (HeapProfilerTestRunner.showProfileWhenAdded === profile.title) {
-    UI.panels.heap_profiler.showProfile(profile);
+    Profiler.HeapProfilerPanel.HeapProfilerPanel.instance().showProfile(profile);
   }
 };
 
 HeapProfilerTestRunner.waitUntilProfileViewIsShown = function(title, callback) {
   callback = TestRunner.safeWrap(callback);
-  const profilesPanel = UI.panels.heap_profiler;
+  const profilesPanel = Profiler.HeapProfilerPanel.HeapProfilerPanel.instance();
 
   if (profilesPanel.visibleView && profilesPanel.visibleView.profile &&
       profilesPanel.visibleView.profileHeader.title === title) {
@@ -734,12 +757,14 @@ HeapProfilerTestRunner.profileViewRefresh = function() {
 };
 
 HeapProfilerTestRunner.startSamplingHeapProfiler = async function() {
-  if (!self.UI.context.flavor(SDK.HeapProfilerModel)) {
-    await new Promise(resolve => self.UI.context.addFlavorChangeListener(SDK.HeapProfilerModel, resolve));
+  if (!UI.Context.Context.instance().flavor(SDK.HeapProfilerModel.HeapProfilerModel)) {
+    await new Promise(
+        resolve =>
+            UI.Context.Context.instance().addFlavorChangeListener(SDK.HeapProfilerModel.HeapProfilerModel, resolve));
   }
-  Profiler.SamplingHeapProfileType.instance.startRecordingProfile();
+  Profiler.HeapProfileView.SamplingHeapProfileType.instance.startRecordingProfile();
 };
 
 HeapProfilerTestRunner.stopSamplingHeapProfiler = function() {
-  Profiler.SamplingHeapProfileType.instance.stopRecordingProfile();
+  Profiler.HeapProfileView.SamplingHeapProfileType.instance.stopRecordingProfile();
 };

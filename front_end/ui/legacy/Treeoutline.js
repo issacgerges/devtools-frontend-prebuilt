@@ -32,15 +32,15 @@
  */
 import * as Common from '../../core/common/common.js';
 import * as Platform from '../../core/platform/platform.js';
+import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
-import * as Utils from './utils/utils.js';
 import { InplaceEditor } from './InplaceEditor.js';
 import { Keys } from './KeyboardShortcut.js';
+import * as ThemeSupport from './theme_support/theme_support.js';
 import { Tooltip } from './Tooltip.js';
-import { deepElementFromPoint, enclosingNodeOrSelfWithNodeNameInArray, isEditing } from './UIUtils.js';
+import treeoutlineStyles from './treeoutline.css.legacy.js';
+import { createShadowRootWithCoreStyles, deepElementFromPoint, enclosingNodeOrSelfWithNodeNameInArray, isEditing, } from './UIUtils.js';
 const nodeToParentTreeElementMap = new WeakMap();
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
 export var Events;
 (function (Events) {
     Events["ElementAttached"] = "ElementAttached";
@@ -77,6 +77,7 @@ export class TreeOutline extends Common.ObjectWrapper.ObjectWrapper {
         this.focusable = true;
         this.setFocusable(true);
         this.element = this.contentElement;
+        this.element.setAttribute('jslog', `${VisualLogging.tree()}`);
         ARIAUtils.markAsTree(this.element);
         this.useLightSelectionColor = false;
         this.treeElementToScrollIntoView = null;
@@ -345,13 +346,14 @@ export class TreeOutlineInShadow extends TreeOutline {
         super();
         this.contentElement.classList.add('tree-outline');
         this.element = document.createElement('div');
-        this.shadowRoot = Utils.createShadowRootWithCoreStyles(this.element, { cssFile: 'ui/legacy/treeoutline.css', delegatesFocus: undefined });
+        this.shadowRoot =
+            createShadowRootWithCoreStyles(this.element, { cssFile: treeoutlineStyles, delegatesFocus: undefined });
         this.disclosureElement = this.shadowRoot.createChild('div', 'tree-outline-disclosure');
         this.disclosureElement.appendChild(this.contentElement);
         this.renderSelection = true;
     }
     registerRequiredCSS(cssFile) {
-        Utils.appendStyle(this.shadowRoot, cssFile);
+        ThemeSupport.ThemeSupport.instance().appendStyle(this.shadowRoot, cssFile);
     }
     registerCSSFiles(cssFiles) {
         this.shadowRoot.adoptedStyleSheets = this.shadowRoot.adoptedStyleSheets.concat(cssFiles);
@@ -382,11 +384,13 @@ export class TreeElement {
     titleInternal;
     childrenInternal;
     childrenListNode;
+    expandLoggable = {};
     hiddenInternal;
     selectableInternal;
     expanded;
     selected;
     expandable;
+    #expandRecursively = true;
     collapsible;
     toggleOnClick;
     button;
@@ -396,7 +400,7 @@ export class TreeElement {
     trailingIconsElement;
     selectionElementInternal;
     disableSelectFocus;
-    constructor(title, expandable) {
+    constructor(title, expandable, jslogContext) {
         this.treeOutline = null;
         this.parent = null;
         this.previousSibling = null;
@@ -413,6 +417,10 @@ export class TreeElement {
         this.listItemNode.addEventListener('mousedown', this.handleMouseDown.bind(this), false);
         this.listItemNode.addEventListener('click', this.treeElementToggled.bind(this), false);
         this.listItemNode.addEventListener('dblclick', this.handleDoubleClick.bind(this), false);
+        this.listItemNode.setAttribute('jslog', `${VisualLogging.treeItem().parent('parentTreeItem').context(jslogContext).track({
+            click: true,
+            keydown: 'ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Backspace|Delete|Enter|Space|Home|End',
+        })}`);
         ARIAUtils.markAsTreeitem(this.listItemNode);
         this.childrenInternal = null;
         this.childrenListNode = document.createElement('ol');
@@ -734,8 +742,18 @@ export class TreeElement {
             ARIAUtils.unsetExpandable(this.listItemNode);
         }
         else {
+            VisualLogging.registerLoggable(this.expandLoggable, `${VisualLogging.expand()}`, this.listItemNode);
             ARIAUtils.setExpanded(this.listItemNode, false);
         }
+    }
+    isExpandRecursively() {
+        return this.#expandRecursively;
+    }
+    setExpandRecursively(expandRecursively) {
+        this.#expandRecursively = expandRecursively;
+    }
+    isCollapsible() {
+        return this.collapsible;
     }
     setCollapsible(collapsible) {
         if (this.collapsible === collapsible) {
@@ -802,12 +820,13 @@ export class TreeElement {
         }
         else {
             if (event.altKey) {
-                this.expandRecursively();
+                void this.expandRecursively();
             }
             else {
                 this.expand();
             }
         }
+        void VisualLogging.logClick(this.expandLoggable, event);
         event.consume();
     }
     handleMouseDown(event) {
@@ -885,7 +904,7 @@ export class TreeElement {
         // sure the expanded flag is true before calling those functions. This prevents the possibility
         // of an infinite loop if onpopulate were to call expand.
         this.expanded = true;
-        this.populateIfNeeded();
+        void this.populateIfNeeded();
         this.listItemNode.classList.add('expanded');
         this.childrenListNode.classList.add('expanded');
         ARIAUtils.setExpanded(this.listItemNode, true);
@@ -904,14 +923,16 @@ export class TreeElement {
         if (maxDepth === undefined || isNaN(maxDepth)) {
             maxDepth = 3;
         }
-        while (item) {
-            await item.populateIfNeeded();
-            if (depth < maxDepth) {
-                item.expand();
+        do {
+            if (item.isExpandRecursively()) {
+                await item.populateIfNeeded();
+                if (depth < maxDepth) {
+                    item.expand();
+                }
             }
-            item = item.traverseNextTreeElement(false, this, (depth >= maxDepth), info);
+            item = item.traverseNextTreeElement(!item.isExpandRecursively(), this, true, info);
             depth += info.depthChange;
-        }
+        } while (item !== null);
     }
     collapseOrAscend(altKey) {
         if (this.expanded && this.collapsible) {
@@ -946,7 +967,7 @@ export class TreeElement {
         }
         if (!this.expanded) {
             if (altKey) {
-                this.expandRecursively();
+                void this.expandRecursively();
             }
             else {
                 this.expand();
@@ -1087,6 +1108,14 @@ export class TreeElement {
         // Overridden by subclasses.
     }
     onenter() {
+        if (this.expandable && !this.expanded) {
+            this.expand();
+            return true;
+        }
+        if (this.collapsible && this.expanded) {
+            this.collapse();
+            return true;
+        }
         return false;
     }
     ondelete() {
@@ -1113,7 +1142,7 @@ export class TreeElement {
     }
     traverseNextTreeElement(skipUnrevealed, stayWithin, dontPopulate, info) {
         if (!dontPopulate) {
-            this.populateIfNeeded();
+            void this.populateIfNeeded();
         }
         if (info) {
             info.depthChange = 0;
@@ -1149,13 +1178,13 @@ export class TreeElement {
     traversePreviousTreeElement(skipUnrevealed, dontPopulate) {
         let element = skipUnrevealed ? (this.revealed() ? this.previousSibling : null) : this.previousSibling;
         if (!dontPopulate && element) {
-            element.populateIfNeeded();
+            void element.populateIfNeeded();
         }
         while (element &&
             (skipUnrevealed ? (element.revealed() && element.expanded ? element.lastChild() : null) :
                 element.lastChild())) {
             if (!dontPopulate) {
-                element.populateIfNeeded();
+                void element.populateIfNeeded();
             }
             element =
                 (skipUnrevealed ? (element.revealed() && element.expanded ? element.lastChild() : null) :
@@ -1175,11 +1204,17 @@ export class TreeElement {
         const paddingLeftValue = window.getComputedStyle(this.listItemNode).paddingLeft;
         console.assert(paddingLeftValue.endsWith('px'));
         const computedLeftPadding = parseFloat(paddingLeftValue);
-        const left = this.listItemNode.totalOffsetLeft() + computedLeftPadding;
+        const left = this.listItemNode.getBoundingClientRect().left + computedLeftPadding;
         return event.pageX >= left && event.pageX <= left + arrowToggleWidth && this.expandable;
     }
     setDisableSelectFocus(toggle) {
         this.disableSelectFocus = toggle;
     }
 }
+function loggingParentProvider(e) {
+    const treeElement = TreeElement.getTreeElementBylistItemNode(e);
+    const parentElement = treeElement?.parent?.listItemElement;
+    return parentElement?.isConnected && parentElement || treeElement?.treeOutline?.contentElement;
+}
+VisualLogging.registerParentProvider('parentTreeItem', loggingParentProvider);
 //# sourceMappingURL=Treeoutline.js.map

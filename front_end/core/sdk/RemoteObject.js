@@ -1,12 +1,8 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// This cannot be an interface due to "instanceof RemoteObject" checks in the code.
 export class RemoteObject {
-    /**
-     * This may not be an interface due to "instanceof RemoteObject" checks in the code.
-     */
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static fromLocalObject(value) {
         return new LocalJSONObject(value);
     }
@@ -20,8 +16,21 @@ export class RemoteObject {
         }
         return remoteObject.type;
     }
+    static isNullOrUndefined(remoteObject) {
+        if (remoteObject === undefined) {
+            return true;
+        }
+        switch (remoteObject.type) {
+            case "object" /* Protocol.Runtime.RemoteObjectType.Object */:
+                return remoteObject.subtype === "null" /* Protocol.Runtime.RemoteObjectSubtype.Null */;
+            case "undefined" /* Protocol.Runtime.RemoteObjectType.Undefined */:
+                return true;
+            default:
+                return false;
+        }
+    }
     static arrayNameFromDescription(description) {
-        return description.replace(_descriptionLengthParenRegex, '').replace(_descriptionLengthSquareRegex, '');
+        return description.replace(descriptionLengthParenRegex, '').replace(descriptionLengthSquareRegex, '');
     }
     static arrayLength(object) {
         if (object.subtype !== 'array' && object.subtype !== 'typedarray') {
@@ -29,38 +38,29 @@ export class RemoteObject {
         }
         // Array lengths in V8-generated descriptions switched from square brackets to parentheses.
         // Both formats are checked in case the front end is dealing with an old version of V8.
-        const parenMatches = object.description && object.description.match(_descriptionLengthParenRegex);
-        const squareMatches = object.description && object.description.match(_descriptionLengthSquareRegex);
+        const parenMatches = object.description && object.description.match(descriptionLengthParenRegex);
+        const squareMatches = object.description && object.description.match(descriptionLengthSquareRegex);
         return parenMatches ? parseInt(parenMatches[1], 10) : (squareMatches ? parseInt(squareMatches[1], 10) : 0);
     }
     static arrayBufferByteLength(object) {
         if (object.subtype !== 'arraybuffer') {
             return 0;
         }
-        const matches = object.description && object.description.match(_descriptionLengthParenRegex);
+        const matches = object.description && object.description.match(descriptionLengthParenRegex);
         return matches ? parseInt(matches[1], 10) : 0;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static unserializableDescription(object) {
-        const type = typeof object;
-        if (type === 'number') {
+        if (typeof object === 'number') {
             const description = String(object);
             if (object === 0 && 1 / object < 0) {
-                // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                // @ts-expect-error
-                return "-0" /* Negative0 */;
+                return "-0" /* UnserializableNumber.Negative0 */;
             }
-            // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-            // @ts-expect-error
-            if (description === "NaN" /* NaN */ || description === "Infinity" /* Infinity */ ||
-                // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                // @ts-expect-error
-                description === "-Infinity" /* NegativeInfinity */) {
+            if (description === "NaN" /* UnserializableNumber.NaN */ || description === "Infinity" /* UnserializableNumber.Infinity */ ||
+                description === "-Infinity" /* UnserializableNumber.NegativeInfinity */) {
                 return description;
             }
         }
-        if (type === 'bigint') {
+        if (typeof object === 'bigint') {
             return object + 'n';
         }
         return null;
@@ -132,7 +132,7 @@ export class RemoteObject {
             if (property.isAccessorProperty()) {
                 continue;
             }
-            if (property.symbol) {
+            if (property.private || property.symbol) {
                 propertySymbols.push(property);
             }
             else {
@@ -215,6 +215,14 @@ export class RemoteObject {
     isNode() {
         return false;
     }
+    /**
+     * Checks whether this object can be inspected with the Linear memory inspector.
+     * @returns `true` if this object can be inspected with the Linear memory inspector.
+     */
+    isLinearMemoryInspectable() {
+        return false;
+    }
+    webIdl;
 }
 export class RemoteObjectImpl extends RemoteObject {
     runtimeModelInternal;
@@ -226,15 +234,10 @@ export class RemoteObjectImpl extends RemoteObject {
     hasChildrenInternal;
     #previewInternal;
     #unserializableValueInternal;
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     #valueInternal;
     #customPreviewInternal;
     #classNameInternal;
-    constructor(runtimeModel, objectId, type, 
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    subtype, value, unserializableValue, description, preview, customPreview, className) {
+    constructor(runtimeModel, objectId, type, subtype, value, unserializableValue, description, preview, customPreview, className) {
         super();
         this.runtimeModelInternal = runtimeModel;
         this.#runtimeAgent = runtimeModel.target().runtimeAgent();
@@ -258,18 +261,10 @@ export class RemoteObjectImpl extends RemoteObject {
             this.hasChildrenInternal = false;
             if (typeof unserializableValue === 'string') {
                 this.#unserializableValueInternal = unserializableValue;
-                // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                // @ts-expect-error
-                if (unserializableValue === "Infinity" /* Infinity */ ||
-                    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                    // @ts-expect-error
-                    unserializableValue === "-Infinity" /* NegativeInfinity */ ||
-                    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                    // @ts-expect-error
-                    unserializableValue === "-0" /* Negative0 */ ||
-                    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-                    // @ts-expect-error
-                    unserializableValue === "NaN" /* NaN */) {
+                if (unserializableValue === "Infinity" /* UnserializableNumber.Infinity */ ||
+                    unserializableValue === "-Infinity" /* UnserializableNumber.NegativeInfinity */ ||
+                    unserializableValue === "-0" /* UnserializableNumber.Negative0 */ ||
+                    unserializableValue === "NaN" /* UnserializableNumber.NaN */) {
                     this.#valueInternal = Number(unserializableValue);
                 }
                 else if (type === 'bigint' && unserializableValue.endsWith('n')) {
@@ -298,8 +293,6 @@ export class RemoteObjectImpl extends RemoteObject {
     get subtype() {
         return this.#subtypeInternal;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get value() {
         return this.#valueInternal;
     }
@@ -365,8 +358,16 @@ export class RemoteObjectImpl extends RemoteObject {
             result.push(remoteProperty);
         }
         for (const property of privateProperties) {
-            const propertyValue = this.runtimeModelInternal.createRemoteObject(property.value);
+            const propertyValue = property.value ? this.runtimeModelInternal.createRemoteObject(property.value) : null;
             const remoteProperty = new RemoteObjectProperty(property.name, propertyValue, true, true, true, false, undefined, false, undefined, true);
+            if (typeof property.value === 'undefined') {
+                if (property.get && property.get.type !== 'undefined') {
+                    remoteProperty.getter = this.runtimeModelInternal.createRemoteObject(property.get);
+                }
+                if (property.set && property.set.type !== 'undefined') {
+                    remoteProperty.setter = this.runtimeModelInternal.createRemoteObject(property.set);
+                }
+            }
             result.push(remoteProperty);
         }
         const internalPropertiesResult = [];
@@ -396,7 +397,7 @@ export class RemoteObjectImpl extends RemoteObject {
         }
         const resultPromise = this.doSetObjectPropertyValue(response.result, name);
         if (response.result.objectId) {
-            this.#runtimeAgent.invoke_releaseObject({ objectId: response.result.objectId });
+            void this.#runtimeAgent.invoke_releaseObject({ objectId: response.result.objectId });
         }
         return resultPromise;
     }
@@ -465,7 +466,7 @@ export class RemoteObjectImpl extends RemoteObject {
         if (!this.#objectIdInternal) {
             return;
         }
-        this.#runtimeAgent.invoke_releaseObject({ objectId: this.#objectIdInternal });
+        void this.#runtimeAgent.invoke_releaseObject({ objectId: this.#objectIdInternal });
     }
     arrayLength() {
         return RemoteObject.arrayLength(this);
@@ -482,14 +483,15 @@ export class RemoteObjectImpl extends RemoteObject {
     isNode() {
         return Boolean(this.#objectIdInternal) && this.type === 'object' && this.subtype === 'node';
     }
+    isLinearMemoryInspectable() {
+        return this.type === 'object' && this.subtype !== undefined &&
+            ['webassemblymemory', 'typedarray', 'dataview', 'arraybuffer'].includes(this.subtype);
+    }
 }
 export class ScopeRemoteObject extends RemoteObjectImpl {
     #scopeRef;
     #savedScopeProperties;
-    constructor(runtimeModel, objectId, scopeRef, type, 
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    subtype, value, unserializableValue, description, preview) {
+    constructor(runtimeModel, objectId, scopeRef, type, subtype, value, unserializableValue, description, preview) {
         super(runtimeModel, objectId, type, subtype, value, unserializableValue, description, preview);
         this.#scopeRef = scopeRef;
         this.#savedScopeProperties = undefined;
@@ -552,11 +554,10 @@ export class RemoteObjectProperty {
     private;
     getter;
     setter;
+    webIdl;
     constructor(name, value, enumerable, writable, isOwn, wasThrown, symbol, synthetic, syntheticSetter, isPrivate) {
         this.name = name;
-        if (value !== null) {
-            this.value = value;
-        }
+        this.value = value !== null ? value : undefined;
         this.enumerable = typeof enumerable !== 'undefined' ? enumerable : true;
         const isNonSyntheticOrSyntheticWritable = !synthetic || Boolean(syntheticSetter);
         this.writable = typeof writable !== 'undefined' ? writable : isNonSyntheticOrSyntheticWritable;
@@ -584,6 +585,25 @@ export class RemoteObjectProperty {
     isAccessorProperty() {
         return Boolean(this.getter || this.setter);
     }
+    match({ includeNullOrUndefinedValues, regex }) {
+        if (regex !== null) {
+            if (!regex.test(this.name) && !regex.test(this.value?.description ?? '')) {
+                return false;
+            }
+        }
+        if (!includeNullOrUndefinedValues) {
+            if (!this.isAccessorProperty() && RemoteObject.isNullOrUndefined(this.value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    cloneWithNewName(newName) {
+        const property = new RemoteObjectProperty(newName, this.value ?? null, this.enumerable, this.writable, this.isOwn, this.wasThrown, this.symbol, this.synthetic, this.syntheticSetter, this.private);
+        property.getter = this.getter;
+        property.setter = this.setter;
+        return property;
+    }
 }
 // Below is a wrapper around a local object that implements the RemoteObject interface,
 // which can be used by the UI code (primarily ObjectPropertiesSection).
@@ -591,13 +611,9 @@ export class RemoteObjectProperty {
 // for traversing prototypes, extracting class names via constructor, handling #properties
 // or functions.
 export class LocalJSONObject extends RemoteObject {
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     valueInternal;
     #cachedDescription;
     #cachedChildren;
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(value) {
         super();
         this.valueInternal = value;
@@ -605,8 +621,6 @@ export class LocalJSONObject extends RemoteObject {
     get objectId() {
         return undefined;
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get value() {
         return this.valueInternal;
     }
@@ -718,18 +732,10 @@ export class LocalJSONObject extends RemoteObject {
         if (!this.hasChildren) {
             return [];
         }
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const value = this.valueInternal;
-        function buildProperty(propName) {
-            let propValue = value[propName];
-            if (!(propValue instanceof RemoteObject)) {
-                propValue = RemoteObject.fromLocalObject(propValue);
-            }
-            return new RemoteObjectProperty(propName, propValue);
-        }
         if (!this.#cachedChildren) {
-            this.#cachedChildren = Object.keys(value).map(buildProperty);
+            this.#cachedChildren = Object.entries(this.valueInternal).map(([name, value]) => {
+                return new RemoteObjectProperty(name, value instanceof RemoteObject ? value : RemoteObject.fromLocalObject(value));
+            });
         }
         return this.#cachedChildren;
     }
@@ -774,8 +780,6 @@ export class RemoteArrayBuffer {
     byteLength() {
         return this.#objectInternal.arrayBufferByteLength();
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async bytes(start = 0, end = this.byteLength()) {
         if (start < 0 || start >= this.byteLength()) {
             throw new RangeError('start is out of range');
@@ -783,11 +787,7 @@ export class RemoteArrayBuffer {
         if (end < start || end > this.byteLength()) {
             throw new RangeError('end is out of range');
         }
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // @ts-expect-error
         return await this.#objectInternal.callFunctionJSON(bytes, [{ value: start }, { value: end - start }]);
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         function bytes(offset, length) {
             return [...new Uint8Array(this, offset, length)];
         }
@@ -807,47 +807,30 @@ export class RemoteArray {
         }
         return new RemoteArray(object);
     }
-    static createFromRemoteObjects(objects) {
+    static async createFromRemoteObjects(objects) {
         if (!objects.length) {
             throw new Error('Input array is empty');
         }
-        const objectArguments = [];
-        for (let i = 0; i < objects.length; ++i) {
-            objectArguments.push(RemoteObject.toCallArgument(objects[i]));
+        const result = await objects[0].callFunction(createArray, objects.map(RemoteObject.toCallArgument));
+        if (result.wasThrown || !result.object) {
+            throw new Error('Call function throws exceptions or returns empty value');
         }
-        return objects[0].callFunction(createArray, objectArguments).then(returnRemoteArray);
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        function createArray() {
-            if (arguments.length > 1) {
-                return new Array(arguments);
-            }
-            return [arguments[0]];
-        }
-        function returnRemoteArray(result) {
-            if (result.wasThrown || !result.object) {
-                throw new Error('Call function throws exceptions or returns empty value');
-            }
-            return RemoteArray.objectAsArray(result.object);
+        return RemoteArray.objectAsArray(result.object);
+        function createArray(...args) {
+            return args;
         }
     }
-    at(index) {
+    async at(index) {
         if (index < 0 || index > this.#objectInternal.arrayLength()) {
             throw new Error('Out of range');
         }
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // @ts-expect-error
-        return this.#objectInternal.callFunction(at, [RemoteObject.toCallArgument(index)]).then(assertCallFunctionResult);
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await this.#objectInternal.callFunction(at, [RemoteObject.toCallArgument(index)]);
+        if (result.wasThrown || !result.object) {
+            throw new Error('Exception in callFunction or result value is empty');
+        }
+        return result.object;
         function at(index) {
             return this[index];
-        }
-        function assertCallFunctionResult(result) {
-            if (result.wasThrown || !result.object) {
-                throw new Error('Exception in callFunction or result value is empty');
-            }
-            return result.object;
         }
     }
     length() {
@@ -907,10 +890,73 @@ export class RemoteFunction {
         return this.#objectInternal;
     }
 }
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _descriptionLengthParenRegex = /\(([0-9]+)\)/;
-// TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _descriptionLengthSquareRegex = /\[([0-9]+)\]/;
+export class RemoteError {
+    #object;
+    #exceptionDetails;
+    #cause;
+    constructor(object) {
+        this.#object = object;
+    }
+    static objectAsError(object) {
+        if (object.subtype !== 'error') {
+            throw new Error(`Object of type ${object.subtype} is not an error`);
+        }
+        return new RemoteError(object);
+    }
+    get errorStack() {
+        return this.#object.description ?? '';
+    }
+    exceptionDetails() {
+        if (!this.#exceptionDetails) {
+            this.#exceptionDetails = this.#lookupExceptionDetails();
+        }
+        return this.#exceptionDetails;
+    }
+    #lookupExceptionDetails() {
+        if (this.#object.objectId) {
+            return this.#object.runtimeModel().getExceptionDetails(this.#object.objectId);
+        }
+        return Promise.resolve(undefined);
+    }
+    cause() {
+        if (!this.#cause) {
+            this.#cause = this.#lookupCause();
+        }
+        return this.#cause;
+    }
+    async #lookupCause() {
+        const allProperties = await this.#object.getAllProperties(false /* accessorPropertiesOnly */, false /* generatePreview */);
+        const cause = allProperties.properties?.find(prop => prop.name === 'cause');
+        return cause?.value;
+    }
+}
+const descriptionLengthParenRegex = /\(([0-9]+)\)/;
+const descriptionLengthSquareRegex = /\[([0-9]+)\]/;
+/**
+ * Pair of a linear memory inspectable {@link RemoteObject} and an optional
+ * expression, which identifies the variable holding the object in the
+ * current scope or the name of the field holding the object.
+ *
+ * This data structure is used to reveal an object in the Linear Memory
+ * Inspector panel.
+ */
+export class LinearMemoryInspectable {
+    /** The linear memory inspectable {@link RemoteObject}. */
+    object;
+    /** The name of the variable or the field holding the `object`. */
+    expression;
+    /**
+     * Wrap `object` and `expression` into a reveable structure.
+     *
+     * @param object A linear memory inspectable {@link RemoteObject}.
+     * @param expression An optional name of the field or variable holding the `object`.
+     */
+    constructor(object, expression) {
+        if (!object.isLinearMemoryInspectable()) {
+            throw new Error('object must be linear memory inspectable');
+        }
+        this.object = object;
+        this.expression = expression;
+    }
+}
 //# sourceMappingURL=RemoteObject.js.map

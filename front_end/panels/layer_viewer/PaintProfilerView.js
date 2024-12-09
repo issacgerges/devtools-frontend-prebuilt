@@ -35,32 +35,32 @@ import paintProfilerStyles from './paintProfiler.css.js';
 import * as UI from '../../ui/legacy/legacy.js';
 const UIStrings = {
     /**
-    *@description Text to indicate the progress of a profile
-    */
+     *@description Text to indicate the progress of a profile
+     */
     profiling: 'Profiling…',
     /**
-    *@description Text in Paint Profiler View of the Layers panel
-    */
+     *@description Text in Paint Profiler View of the Layers panel
+     */
     shapes: 'Shapes',
     /**
-    *@description Text in Paint Profiler View of the Layers panel
-    */
+     *@description Text in Paint Profiler View of the Layers panel
+     */
     bitmap: 'Bitmap',
     /**
-    *@description Generic label for any text
-    */
+     *@description Generic label for any text
+     */
     text: 'Text',
     /**
-    *@description Text in Paint Profiler View of the Layers panel
-    */
+     *@description Text in Paint Profiler View of the Layers panel
+     */
     misc: 'Misc',
     /**
-    *@description ARIA label for a pie chart that shows the results of the paint profiler
-    */
+     *@description ARIA label for a pie chart that shows the results of the paint profiler
+     */
     profilingResults: 'Profiling results',
     /**
-    *@description Label for command log tree in the Profiler tab
-    */
+     *@description Label for command log tree in the Profiler tab
+     */
     commandLog: 'Command Log',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/layer_viewer/PaintProfilerView.ts', UIStrings);
@@ -101,7 +101,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin(UI.Widget
         this.canvas = this.canvasContainer.createChild('canvas', 'fill');
         this.context = this.canvas.getContext('2d');
         this.selectionWindowInternal = new PerfUI.OverviewGrid.Window(this.canvasContainer);
-        this.selectionWindowInternal.addEventListener(PerfUI.OverviewGrid.Events.WindowChanged, this.onWindowChanged, this);
+        this.selectionWindowInternal.addEventListener("WindowChanged" /* PerfUI.OverviewGrid.Events.WindowChanged */, this.onWindowChanged, this);
         this.innerBarWidth = 4 * window.devicePixelRatio;
         this.minBarHeight = window.devicePixelRatio;
         this.barPaddingWidth = 2 * window.devicePixelRatio;
@@ -275,7 +275,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin(UI.Widget
         }
     }
     onWindowChanged() {
-        this.dispatchEventToListeners(Events.WindowChanged);
+        this.dispatchEventToListeners("WindowChanged" /* Events.WindowChanged */);
         this.updatePieChart();
         if (this.updateImageTimer) {
             return;
@@ -347,7 +347,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin(UI.Widget
         if (!this.snapshot) {
             return;
         }
-        this.snapshot.replay(scale, left, right).then(image => {
+        void this.snapshot.replay(scale, left, right).then(image => {
             if (!image) {
                 return;
             }
@@ -369,12 +369,6 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin(UI.Widget
         this.registerCSSFiles([paintProfilerStyles]);
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["WindowChanged"] = "WindowChanged";
-})(Events || (Events = {}));
 export class PaintProfilerCommandLogView extends UI.ThrottledWidget.ThrottledWidget {
     treeOutline;
     log;
@@ -385,7 +379,7 @@ export class PaintProfilerCommandLogView extends UI.ThrottledWidget.ThrottledWid
         this.setMinimumSize(100, 25);
         this.element.classList.add('overflow-auto');
         this.treeOutline = new UI.TreeOutline.TreeOutlineInShadow();
-        UI.ARIAUtils.setAccessibleName(this.treeOutline.contentElement, i18nString(UIStrings.commandLog));
+        UI.ARIAUtils.setLabel(this.treeOutline.contentElement, i18nString(UIStrings.commandLog));
         this.element.appendChild(this.treeOutline.element);
         this.setDefaultFocusedElement(this.treeOutline.contentElement);
         this.log = [];
@@ -461,14 +455,15 @@ export class LogTreeElement extends UI.TreeOutline.TreeElement {
         let str = '';
         let keyCount = 0;
         for (const key in param) {
-            if (++keyCount > 4 || typeof param[key] === 'object' ||
-                (typeof param[key] === 'string' && param[key].length > 100)) {
+            const paramKey = param[key];
+            if (++keyCount > 4 || paramKey === 'object' ||
+                (paramKey === 'string' && paramKey.length > 100)) {
                 return name;
             }
             if (str) {
                 str += ', ';
             }
-            str += param[key];
+            str += paramKey;
         }
         return str;
     }

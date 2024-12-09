@@ -30,6 +30,7 @@
 import * as Platform from '../../core/platform/platform.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import { ConsoleViewMessage, getMessageForElement } from './ConsoleViewMessage.js';
 export class ConsoleViewport {
     element;
     topGapElement;
@@ -209,12 +210,16 @@ export class ConsoleViewport {
     updateFocusedItem(focusLastChild) {
         const selectedElement = this.renderedElementAt(this.virtualSelectedIndex);
         const changed = this.lastSelectedElement !== selectedElement;
-        const containerHasFocus = this.contentElementInternal === this.element.ownerDocument.deepActiveElement();
+        const containerHasFocus = this.contentElementInternal === Platform.DOMUtilities.deepActiveElement(this.element.ownerDocument);
         if (this.lastSelectedElement && changed) {
             this.lastSelectedElement.classList.remove('console-selected');
         }
         if (selectedElement && (focusLastChild || changed || containerHasFocus) && this.element.hasFocus()) {
             selectedElement.classList.add('console-selected');
+            const consoleViewMessage = getMessageForElement(selectedElement);
+            if (consoleViewMessage) {
+                UI.Context.Context.instance().setFlavor(ConsoleViewMessage, consoleViewMessage);
+            }
             // Do not focus the message if something within holds focus (e.g. object).
             if (focusLastChild) {
                 this.setStickToBottom(false);
@@ -561,8 +566,9 @@ export class ConsoleViewport {
         let node = itemElement;
         while ((node = node.traverseNextNode(itemElement)) && node !== selectionNode) {
             if (node.nodeType !== Node.TEXT_NODE ||
-                (node.parentElement &&
-                    (node.parentElement.nodeName === 'STYLE' || node.parentElement.nodeName === 'SCRIPT'))) {
+                (node.parentNode &&
+                    (node.parentNode.nodeName === 'STYLE' || node.parentNode.nodeName === 'SCRIPT' ||
+                        node.parentNode.nodeName === '#document-fragment'))) {
                 continue;
             }
             chars += Components.Linkifier.Linkifier.untruncatedNodeText(node).length;

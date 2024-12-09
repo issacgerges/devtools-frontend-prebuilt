@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
+import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import * as TextUtils from '../text_utils/text_utils.js';
 export class Importer {
     static requestsFromHARLog(log) {
         const pages = new Map();
@@ -23,6 +25,8 @@ export class Importer {
                     type: initiatorEntry.type,
                     url: initiatorEntry.url,
                     lineNumber: initiatorEntry.lineNumber,
+                    requestId: initiatorEntry.requestId,
+                    stack: initiatorEntry.stack,
                 };
             }
             const request = SDK.NetworkRequest.NetworkRequest.createWithoutBackendRequest('har-' + requests.length, entry.request.url, documentURL, initiator);
@@ -90,18 +94,16 @@ export class Importer {
             request.setFromDiskCache();
         }
         const contentText = entry.response.content.text;
-        const contentData = {
-            error: null,
-            content: contentText ? contentText : null,
-            encoded: entry.response.content.encoding === 'base64',
-        };
-        request.setContentDataProvider(async () => contentData);
+        const isBase64 = entry.response.content.encoding === 'base64';
+        const { mimeType, charset } = Platform.MimeType.parseContentType(entry.response.content.mimeType);
+        request.setContentDataProvider(async () => new TextUtils.ContentData.ContentData(contentText ?? '', isBase64, mimeType ?? '', charset ?? undefined));
         // Timing data.
         Importer.setupTiming(request, issueTime, entry.time, entry.timings);
         // Meta data.
         request.setRemoteAddress(entry.serverIPAddress || '', 80); // Har does not support port numbers.
         request.setResourceType(Importer.getResourceType(request, entry, pageLoad));
         const priority = entry.customAsString('priority');
+        // @ts-expect-error This accesses the globalThis['Protocol'] where the enum is an actual JS object and not just a TS const enum.
         if (priority && Protocol.Network.ResourcePriority.hasOwnProperty(priority)) {
             request.setPriority(priority);
         }
@@ -158,6 +160,13 @@ export class Importer {
         let lastEntry = timings.blocked && (timings.blocked >= 0) ? timings.blocked : 0;
         const proxy = timings.customAsNumber('blocked_proxy') || -1;
         const queueing = timings.customAsNumber('blocked_queueing') || -1;
+        // `blocked_queueing` should be excluded from `lastEntry`
+        // (`timings.blocked`) here because it should be taken into account
+        // by `timing.requestTime`, and other subsequent timings are
+        // calculated based on the accumulated `lastEntry`.
+        if (lastEntry > 0 && queueing > 0) {
+            lastEntry -= queueing;
+        }
         // SSL is part of connect for both HAR and Chrome's format so subtract it here.
         const ssl = timings.ssl && (timings.ssl >= 0) ? timings.ssl : 0;
         if (timings.connect && (timings.connect > 0)) {
@@ -183,6 +192,7 @@ export class Importer {
             sendEnd: accumulateTime(timings.send),
             pushStart: 0,
             pushEnd: 0,
+            receiveHeadersStart: timings.wait && (timings.wait >= 0) ? lastEntry : -1,
             receiveHeadersEnd: accumulateTime(timings.wait),
         };
         accumulateTime(timings.receive);

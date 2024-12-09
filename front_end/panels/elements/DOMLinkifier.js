@@ -5,13 +5,14 @@ import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import domLinkifierStyles from './domLinkifier.css.js';
 const UIStrings = {
     /**
-    * @description Text displayed when trying to create a link to a node in the UI, but the node
-    * location could not be found so we display this placeholder instead. Node refers to a DOM node.
-    * This should be translated if appropriate.
-    */
+     * @description Text displayed when trying to create a link to a node in the UI, but the node
+     * location could not be found so we display this placeholder instead. Node refers to a DOM node.
+     * This should be translated if appropriate.
+     */
     node: '<node>',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/elements/DOMLinkifier.ts', UIStrings);
@@ -52,8 +53,12 @@ export const decorateNodeLabel = function (node, parentElement, tooltipContent) 
         }
     }
     if (isPseudo) {
+        const pseudoIdentifier = originalNode.pseudoIdentifier();
         const pseudoElement = parentElement.createChild('span', 'extra node-label-pseudo');
-        const pseudoText = '::' + originalNode.pseudoType();
+        let pseudoText = '::' + originalNode.pseudoType();
+        if (pseudoIdentifier) {
+            pseudoText += `(${pseudoIdentifier})`;
+        }
         UI.UIUtils.createTextChild(pseudoElement, pseudoText);
         title += pseudoText;
     }
@@ -68,19 +73,18 @@ export const linkifyNodeReference = function (node, options = {
     }
     const root = document.createElement('span');
     root.classList.add('monospace');
-    const shadowRoot = UI.Utils.createShadowRootWithCoreStyles(root, { cssFile: [domLinkifierStyles], delegatesFocus: undefined });
-    const link = shadowRoot.createChild('div', 'node-link');
+    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(root, { cssFile: [domLinkifierStyles], delegatesFocus: undefined });
+    const link = shadowRoot.createChild('button', 'node-link text-button link-style');
+    link.setAttribute('jslog', `${VisualLogging.link('node').track({ click: true, keydown: 'Enter' })}`);
     decorateNodeLabel(node, link, options.tooltip);
     link.addEventListener('click', () => {
-        Common.Revealer.reveal(node, false);
+        void Common.Revealer.reveal(node, false);
         return false;
     }, false);
     link.addEventListener('mouseover', node.highlight.bind(node, undefined), false);
     link.addEventListener('mouseleave', () => SDK.OverlayModel.OverlayModel.hideDOMNodeHighlight(), false);
-    if (!options.preventKeyboardFocus) {
-        link.addEventListener('keydown', event => event.key === 'Enter' && Common.Revealer.reveal(node, false) && false);
-        link.tabIndex = 0;
-        UI.ARIAUtils.markAsLink(link);
+    if (options.preventKeyboardFocus) {
+        link.tabIndex = -1;
     }
     return root;
 };
@@ -89,18 +93,17 @@ export const linkifyDeferredNodeReference = function (deferredNode, options = {
     preventKeyboardFocus: undefined,
 }) {
     const root = document.createElement('div');
-    const shadowRoot = UI.Utils.createShadowRootWithCoreStyles(root, { cssFile: [domLinkifierStyles], delegatesFocus: undefined });
-    const link = shadowRoot.createChild('div', 'node-link');
+    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(root, { cssFile: [domLinkifierStyles], delegatesFocus: undefined });
+    const link = shadowRoot.createChild('button', 'node-link text-button link-style');
+    link.setAttribute('jslog', `${VisualLogging.link('node').track({ click: true })}`);
     link.createChild('slot');
     link.addEventListener('click', deferredNode.resolve.bind(deferredNode, onDeferredNodeResolved), false);
     link.addEventListener('mousedown', e => e.consume(), false);
-    if (!options.preventKeyboardFocus) {
-        link.addEventListener('keydown', event => event.key === 'Enter' && deferredNode.resolve(onDeferredNodeResolved));
-        link.tabIndex = 0;
-        UI.ARIAUtils.markAsLink(link);
+    if (options.preventKeyboardFocus) {
+        link.tabIndex = -1;
     }
     function onDeferredNodeResolved(node) {
-        Common.Revealer.reveal(node);
+        void Common.Revealer.reveal(node);
     }
     return root;
 };

@@ -1,9 +1,11 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import * as Platform from '../../core/platform/platform.js';
-import * as ProtocolClientModule from '../../core/protocol_client/protocol_client.js';
+// @ts-nocheck This file is not checked by TypeScript as it has a lot of legacy code.
+import * as Common from '../../core/common/common.js'; // eslint-disable-line no-unused-vars
+import * as ProtocolClient from '../../core/protocol_client/protocol_client.js';
 import * as Root from '../../core/root/root.js';
+import * as SDK from '../../core/sdk/sdk.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import * as Workspace from '../../models/workspace/workspace.js';
 import * as CodeHighlighter from '../../ui/components/code_highlighter/code_highlighter.js';
@@ -12,10 +14,6 @@ import * as UI from '../../ui/legacy/legacy.js';
  * @fileoverview using private properties isn't a Closure violation in tests.
  */
 /* eslint-disable no-console */
-self.Platform = self.Platform || {};
-self.Platform.StringUtilities = Platform.StringUtilities;
-self.Platform.MapUtilities = Platform.MapUtilities;
-self.Platform.ArrayUtilities = Platform.ArrayUtilities;
 /**
  * @return {boolean}
  */
@@ -52,7 +50,7 @@ self['onerror'] = (message, source, lineno, colno, error) => {
 };
 (() => {
     self.addEventListener('unhandledrejection', event => {
-        addResult(`PROMISE FAILURE: ${event.reason.stack}`);
+        addResult(`PROMISE FAILURE: ${event.reason.stack ?? event.reason}`);
         completeTest();
     });
 })();
@@ -204,41 +202,25 @@ export function addSnifferPromise(receiver, methodName) {
         };
     });
 }
-/** @type {function():void} */
-let _resolveOnFinishInits;
 /**
- * @param {string} module
- * @return {!Promise<undefined>}
+ * @param {Text} textNode
+ * @param {number=} start
+ * @param {number=} end
+ * @return {Text}
  */
-export async function loadModule(module) {
-    const promise = new Promise(resolve => {
-        _resolveOnFinishInits = resolve;
-    });
-    await self.runtime.loadModulePromise(module);
-    if (!_pendingInits) {
-        return;
+export function selectTextInTextNode(textNode, start, end) {
+    start = start || 0;
+    end = end || textNode.textContent.length;
+    if (start < 0) {
+        start = end + start;
     }
-    return promise;
-}
-/**
- * @param {string} module
- * @return {!Promise<void>}
- */
-export async function loadLegacyModule(module) {
-    let containingFolder = module;
-    for (const [remappedFolder, originalFolder] of Root.Runtime.mappingForLayoutTests.entries()) {
-        if (originalFolder === module) {
-            containingFolder = remappedFolder;
-        }
-    }
-    await import(`../../${containingFolder}/${containingFolder.split('/').reverse()[0]}-legacy.js`);
-}
-/**
- * @param {string} module
- * @return {!Promise<void>}
- */
-export async function loadTestModule(module) {
-    await import(`../${module}/${module}.js`);
+    const selection = textNode.getComponentSelection();
+    selection.removeAllRanges();
+    const range = textNode.ownerDocument.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, end);
+    selection.addRange(range);
+    return textNode;
 }
 /**
  * @param {string} panel
@@ -344,7 +326,7 @@ export function textContentWithLineBreaks(node) {
     let ignoreFirst = false;
     while (currentNode.traverseNextNode(node)) {
         currentNode = currentNode.traverseNextNode(node);
-        if (currentNode.nodeType === Node.TEXT_NODE) {
+        if (currentNode.nodeType === Node.TEXT_NODE && currentNode.parentNode?.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
             buffer += currentNode.nodeValue;
         }
         else if (currentNode.nodeName === 'LI' || currentNode.nodeName === 'TR') {
@@ -369,11 +351,23 @@ export function textContentWithLineBreaks(node) {
  * @param {!Node} node
  * @return {string}
  */
+export function textContentWithLineBreaksTrimmed(node) {
+    // We want to allow single empty lines (2 white space characters), but
+    // compress occurences of 3 or more whitespaces.
+    return textContentWithLineBreaks(node).replace(/\s{3,}/g, ' ');
+}
+/**
+ * @param {!Node} node
+ * @return {string}
+ */
 export function textContentWithoutStyles(node) {
     let buffer = '';
     let currentNode = node;
-    while (currentNode.traverseNextNode(node)) {
-        currentNode = currentNode.traverseNextNode(node, currentNode.tagName === 'DEVTOOLS-CSS-LENGTH');
+    while (true) {
+        currentNode = currentNode.traverseNextNode(node, currentNode.tagName === 'DEVTOOLS-CSS-LENGTH' || currentNode.tagName === 'DEVTOOLS-ICON');
+        if (!currentNode) {
+            break;
+        }
         if (currentNode.nodeType === Node.TEXT_NODE) {
             buffer += currentNode.nodeValue;
         }
@@ -403,7 +397,7 @@ export async function evaluateInPage(code, callback) {
 let _evaluateInPageCounter = 0;
 /**
  * @param {string} code
- * @return {!Promise<undefined|{response: (!SDK.RemoteObject|undefined),
+ * @return {!Promise<undefined|{response: (!SDK.RuntimeModel.RemoteObject|undefined),
  *   exceptionDetails: (!Protocol.Runtime.ExceptionDetails|undefined)}>}
  */
 export async function _evaluateInPage(code) {
@@ -421,7 +415,7 @@ export async function _evaluateInPage(code) {
         code += `//# sourceURL=${sourceURL}`;
     }
     const response = await TestRunner.RuntimeAgent.invoke_evaluate({ expression: code, objectGroup: 'console' });
-    const error = response[ProtocolClientModule.InspectorBackend.ProtocolError];
+    const error = response[ProtocolClient.InspectorBackend.ProtocolError];
     if (error) {
         addResult('Error: ' + error);
         completeTest();
@@ -438,7 +432,7 @@ export async function _evaluateInPage(code) {
  */
 export async function evaluateInPageAnonymously(code, userGesture) {
     const response = await TestRunner.RuntimeAgent.invoke_evaluate({ expression: code, objectGroup: 'console', userGesture });
-    if (!response[ProtocolClientModule.InspectorBackend.ProtocolError]) {
+    if (!response[ProtocolClient.InspectorBackend.ProtocolError]) {
         return response.result.value;
     }
     addResult('Error: ' +
@@ -458,7 +452,7 @@ export function evaluateInPagePromise(code) {
  */
 export async function evaluateInPageAsync(code) {
     const response = await TestRunner.RuntimeAgent.invoke_evaluate({ expression: code, objectGroup: 'console', includeCommandLineAPI: false, awaitPromise: true });
-    const error = response[ProtocolClientModule.InspectorBackend.ProtocolError];
+    const error = response[ProtocolClient.InspectorBackend.ProtocolError];
     if (!error && !response.exceptionDetails) {
         return response.result.value;
     }
@@ -524,7 +518,7 @@ export function check(passCondition, failureText) {
  * @param {!Function} callback
  */
 export function deprecatedRunAfterPendingDispatches(callback) {
-    ProtocolClient.test.deprecatedRunAfterPendingDispatches(callback);
+    ProtocolClient.InspectorBackend.test.deprecatedRunAfterPendingDispatches(callback);
 }
 /**
  * This ensures a base tag is set so all DOM references
@@ -608,8 +602,6 @@ export function addIframe(path, options = {}) {
     })();
   `);
 }
-/** @type {number} */
-let _pendingInits = 0;
 /**
  * The old test framework executed certain snippets in the inspected page
  * context as part of loading a test helper file.
@@ -625,12 +617,7 @@ let _pendingInits = 0;
  * @param {string} code
  */
 export async function deprecatedInitAsync(code) {
-    _pendingInits++;
     await TestRunner.RuntimeAgent.invoke_evaluate({ expression: code, objectGroup: 'console' });
-    _pendingInits--;
-    if (!_pendingInits && _resolveOnFinishInits !== undefined) {
-        _resolveOnFinishInits();
-    }
 }
 /**
  * @param {string} title
@@ -639,12 +626,12 @@ export function markStep(title) {
     addResult('\nRunning: ' + title);
 }
 export function startDumpingProtocolMessages() {
-    ProtocolClient.test.dumpProtocol = self.testRunner.logToStderr.bind(self.testRunner);
+    ProtocolClient.InspectorBackend.test.dumpProtocol = self.testRunner.logToStderr.bind(self.testRunner);
 }
 /**
  * @param {string} url
  * @param {string} content
- * @param {!SDK.ResourceTreeFrame} frame
+ * @param {!SDK.ResourceTreeModel.ResourceTreeFrame} frame
  */
 export function addScriptForFrame(url, content, frame) {
     content += '\n//# sourceURL=' + url;
@@ -653,16 +640,16 @@ export function addScriptForFrame(url, content, frame) {
 }
 export const formatters = {
     /**
-   * @param {*} value
-   * @return {string}
-   */
+     * @param {*} value
+     * @return {string}
+     */
     formatAsTypeName(value) {
         return '<' + typeof value + '>';
     },
     /**
-   * @param {*} value
-   * @return {string}
-   */
+     * @param {*} value
+     * @return {string}
+     */
     formatAsTypeNameOrNull(value) {
         if (value === null) {
             return 'null';
@@ -670,9 +657,9 @@ export const formatters = {
         return formatters.formatAsTypeName(value);
     },
     /**
-   * @param {*} value
-   * @return {string|!Date}
-   */
+     * @param {*} value
+     * @return {string|!Date}
+     */
     formatAsRecentTime(value) {
         if (typeof value !== 'object' || !(value instanceof Date)) {
             return formatters.formatAsTypeName(value);
@@ -681,9 +668,9 @@ export const formatters = {
         return 0 <= delta && delta < 30 * 60 * 1000 ? '<plausible>' : value;
     },
     /**
-   * @param {string} value
-   * @return {string}
-   */
+     * @param {string} value
+     * @return {string}
+     */
     formatAsURL(value) {
         if (!value) {
             return value;
@@ -695,9 +682,9 @@ export const formatters = {
         return '.../' + value.substr(lastIndex);
     },
     /**
-   * @param {string} value
-   * @return {string}
-   */
+     * @param {string} value
+     * @return {string}
+     */
     formatAsDescription(value) {
         if (!value) {
             return value;
@@ -859,12 +846,12 @@ export function waitForEvent(eventName, obj, condition) {
     });
 }
 /**
- * @param {function(!SDK.Target):boolean} filter
- * @return {!Promise<!SDK.Target>}
+ * @param {function(!SDK.Target.Target):boolean} filter
+ * @return {!Promise<!SDK.Target.Target>}
  */
 export function waitForTarget(filter) {
     filter = filter || (target => true);
-    for (const target of self.SDK.targetManager.targets()) {
+    for (const target of SDK.TargetManager.TargetManager.instance().targets()) {
         if (filter(target)) {
             return Promise.resolve(target);
         }
@@ -873,35 +860,35 @@ export function waitForTarget(filter) {
         const observer = /** @type {!SDK.TargetManager.Observer} */ ({
             targetAdded: function (target) {
                 if (filter(target)) {
-                    self.SDK.targetManager.unobserveTargets(observer);
+                    SDK.TargetManager.TargetManager.instance().unobserveTargets(observer);
                     fulfill(target);
                 }
             },
             targetRemoved: function () { },
         });
-        self.SDK.targetManager.observeTargets(observer);
+        SDK.TargetManager.TargetManager.instance().observeTargets(observer);
     });
 }
 /**
- * @param {!SDK.Target} targetToRemove
- * @return {!Promise<!SDK.Target>}
+ * @param {!SDK.Target.Target} targetToRemove
+ * @return {!Promise<!SDK.Target.Target>}
  */
 export function waitForTargetRemoved(targetToRemove) {
     return new Promise(fulfill => {
         const observer = /** @type {!SDK.TargetManager.Observer} */ ({
             targetRemoved: function (target) {
                 if (target === targetToRemove) {
-                    self.SDK.targetManager.unobserveTargets(observer);
+                    SDK.TargetManager.TargetManager.instance().unobserveTargets(observer);
                     fulfill(target);
                 }
             },
             targetAdded: function () { },
         });
-        self.SDK.targetManager.observeTargets(observer);
+        SDK.TargetManager.TargetManager.instance().observeTargets(observer);
     });
 }
 /**
- * @param {!SDK.RuntimeModel} runtimeModel
+ * @param {!SDK.RuntimeModel.RuntimeModel} runtimeModel
  * @return {!Promise}
  */
 export function waitForExecutionContext(runtimeModel) {
@@ -911,7 +898,7 @@ export function waitForExecutionContext(runtimeModel) {
     return runtimeModel.once(SDK.RuntimeModel.Events.ExecutionContextCreated);
 }
 /**
- * @param {!SDK.ExecutionContext} context
+ * @param {!SDK.RuntimeModel.ExecutionContext} context
  * @return {!Promise}
  */
 export function waitForExecutionContextDestroyed(context) {
@@ -994,7 +981,7 @@ export function pageLoaded() {
     _handlePageLoaded();
 }
 export async function _handlePageLoaded() {
-    await waitForExecutionContext(/** @type {!SDK.RuntimeModel} */ (TestRunner.runtimeModel));
+    await waitForExecutionContext(/** @type {!SDK.RuntimeModel.RuntimeModel} */ (TestRunner.runtimeModel));
     if (_pageLoadedCallback) {
         const callback = _pageLoadedCallback;
         _pageLoadedCallback = undefined;
@@ -1123,7 +1110,7 @@ export function hideInspectorView() {
     UI.InspectorView.InspectorView.instance().element.setAttribute('style', 'display:none !important');
 }
 /**
- * @return {?SDK.ResourceTreeFrame}
+ * @return {?SDK.ResourceTreeModel.ResourceTreeFrame}
  */
 export function mainFrame() {
     return TestRunner.resourceTreeModel.mainFrame;
@@ -1177,33 +1164,6 @@ export class MockSetting {
     }
 }
 /**
- * @return {!Array<!Root.Runtime.Module>}
- */
-export function loadedModules() {
-    return self.runtime.modules.filter(module => module.loadedForTest)
-        .filter(module => module.name() !== 'help')
-        .filter(module => module.name().indexOf('test_runner') === -1);
-}
-/**
- * @param {!Array<!Root.Runtime.Module>} relativeTo
- * @return {!Array<!Root.Runtime.Module>}
- */
-export function dumpLoadedModules(relativeTo) {
-    const previous = new Set(relativeTo || []);
-    function moduleSorter(left, right) {
-        return Platform.StringUtilities.naturalOrderComparator(left.descriptor.name, right.descriptor.name);
-    }
-    addResult('Loaded modules:');
-    const sortedLoadedModules = loadedModules().sort(moduleSorter);
-    for (const module of sortedLoadedModules) {
-        if (previous.has(module)) {
-            continue;
-        }
-        addResult('    ' + module.descriptor.name);
-    }
-    return sortedLoadedModules;
-}
-/**
  * @param {string} urlSuffix
  * @param {!Workspace.Workspace.projectTypes=} projectType
  * @return {!Promise}
@@ -1225,25 +1185,25 @@ export function waitForUISourceCode(urlSuffix, projectType) {
         }
         return true;
     }
-    for (const uiSourceCode of self.Workspace.workspace.uiSourceCodes()) {
+    for (const uiSourceCode of Workspace.Workspace.WorkspaceImpl.instance().uiSourceCodes()) {
         if (urlSuffix && matches(uiSourceCode)) {
             return Promise.resolve(uiSourceCode);
         }
     }
-    return waitForEvent(Workspace.Workspace.Events.UISourceCodeAdded, self.Workspace.workspace, matches);
+    return waitForEvent(Workspace.Workspace.Events.UISourceCodeAdded, Workspace.Workspace.WorkspaceImpl.instance(), matches);
 }
 /**
  * @param {!Function} callback
  */
 export function waitForUISourceCodeRemoved(callback) {
-    self.Workspace.workspace.once(Workspace.Workspace.Events.UISourceCodeRemoved).then(callback);
+    Workspace.Workspace.WorkspaceImpl.instance().once(Workspace.Workspace.Events.UISourceCodeRemoved).then(callback);
 }
 /**
  * @param {string=} url
  * @return {string}
  */
 export function url(url = '') {
-    const testScriptURL = /** @type {string} */ (Root.Runtime.Runtime.queryParam('test'));
+    const testScriptURL = /** @type {string} */ (Root.Runtime.Runtime.queryParam('inspected_test') || Root.Runtime.Runtime.queryParam('test'));
     // This handles relative (e.g. "../file"), root (e.g. "/resource"),
     // absolute (e.g. "http://", "data:") and empty (e.g. "") paths
     return new URL(url, testScriptURL + '/../').href;
@@ -1335,6 +1295,7 @@ TestRunner.showPanel = showPanel;
 TestRunner.createKeyEvent = createKeyEvent;
 TestRunner.safeWrap = safeWrap;
 TestRunner.textContentWithLineBreaks = textContentWithLineBreaks;
+TestRunner.textContentWithLineBreaksTrimmed = textContentWithLineBreaksTrimmed;
 TestRunner.textContentWithoutStyles = textContentWithoutStyles;
 TestRunner.evaluateInPagePromise = evaluateInPagePromise;
 TestRunner.callFunctionInPageAsync = callFunctionInPageAsync;
@@ -1376,15 +1337,10 @@ TestRunner.override = override;
 TestRunner.clearSpecificInfoFromStackFrames = clearSpecificInfoFromStackFrames;
 TestRunner.hideInspectorView = hideInspectorView;
 TestRunner.mainFrame = mainFrame;
-TestRunner.loadedModules = loadedModules;
-TestRunner.dumpLoadedModules = dumpLoadedModules;
 TestRunner.waitForUISourceCode = waitForUISourceCode;
 TestRunner.waitForUISourceCodeRemoved = waitForUISourceCodeRemoved;
 TestRunner.url = url;
 TestRunner.dumpSyntaxHighlight = dumpSyntaxHighlight;
-TestRunner.loadModule = loadModule;
-TestRunner.loadLegacyModule = loadLegacyModule;
-TestRunner.loadTestModule = loadTestModule;
 TestRunner.evaluateInPageRemoteObject = evaluateInPageRemoteObject;
 TestRunner.evaluateInPage = evaluateInPage;
 TestRunner.evaluateInPageAnonymously = evaluateInPageAnonymously;
@@ -1394,5 +1350,6 @@ TestRunner.runAsyncTestSuite = runAsyncTestSuite;
 TestRunner.dumpInspectedPageElementText = dumpInspectedPageElementText;
 TestRunner.waitForPendingLiveLocationUpdates = waitForPendingLiveLocationUpdates;
 TestRunner.findLineEndingIndexes = findLineEndingIndexes;
+TestRunner.selectTextInTextNode = selectTextInTextNode;
 TestRunner.isScrolledToBottom = UI.UIUtils.isScrolledToBottom;
 //# sourceMappingURL=TestRunner.js.map

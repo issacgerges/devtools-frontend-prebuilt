@@ -6,6 +6,7 @@ import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) {
     overviewCalculator;
     overviewContainer;
@@ -25,6 +26,7 @@ export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin(UI.Wid
         super();
         this.element.id = 'heap-recording-view';
         this.element.classList.add('heap-tracking-overview');
+        this.element.setAttribute('jslog', `${VisualLogging.section('heap-tracking-overview')}`);
         this.overviewCalculator = new OverviewCalculator();
         this.overviewContainer = this.element.createChild('div', 'heap-overview-container');
         this.overviewGrid = new PerfUI.OverviewGrid.OverviewGrid('heap-recording', this.overviewCalculator);
@@ -32,7 +34,7 @@ export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin(UI.Wid
         this.overviewCanvas =
             this.overviewContainer.createChild('canvas', 'heap-recording-overview-canvas');
         this.overviewContainer.appendChild(this.overviewGrid.element);
-        this.overviewGrid.addEventListener(PerfUI.OverviewGrid.Events.WindowChanged, this.onWindowChanged, this);
+        this.overviewGrid.addEventListener("WindowChanged" /* PerfUI.OverviewGrid.Events.WindowChanged */, this.onWindowChanged, this);
         this.windowLeft = 0.0;
         this.windowRight = 1.0;
         this.overviewGrid.setWindow(this.windowLeft, this.windowRight);
@@ -172,14 +174,14 @@ export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin(UI.Wid
     }
     onWindowChanged() {
         if (!this.updateGridTimerId) {
-            this.updateGridTimerId = setTimeout(this.updateGrid.bind(this), 10);
+            this.updateGridTimerId = window.setTimeout(this.updateGrid.bind(this), 10);
         }
     }
     scheduleUpdate() {
         if (this.updateTimerId) {
             return;
         }
-        this.updateTimerId = setTimeout(this.update.bind(this), 10);
+        this.updateTimerId = window.setTimeout(this.update.bind(this), 10);
     }
     updateBoundaries() {
         this.windowLeft = this.overviewGrid.windowLeft();
@@ -212,12 +214,12 @@ export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin(UI.Wid
         const minIndex = Platform.ArrayUtilities.lowerBound(timestamps, timeLeft, Platform.ArrayUtilities.DEFAULT_COMPARATOR);
         const maxIndex = Platform.ArrayUtilities.upperBound(timestamps, timeRight, Platform.ArrayUtilities.DEFAULT_COMPARATOR);
         let size = 0;
-        for (let i = minIndex; i <= maxIndex; ++i) {
+        for (let i = minIndex; i < maxIndex; ++i) {
             size += sizes[i];
         }
         const minId = minIndex > 0 ? ids[minIndex - 1] : 0;
         const maxId = maxIndex < ids.length ? ids[maxIndex] : Infinity;
-        this.dispatchEventToListeners("IdsRangeChanged" /* IdsRangeChanged */, { minId, maxId, size });
+        this.dispatchEventToListeners("IdsRangeChanged" /* Events.IdsRangeChanged */, { minId, maxId, size });
     }
 }
 export class SmoothScale {

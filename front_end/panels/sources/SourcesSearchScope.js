@@ -71,18 +71,21 @@ export class SourcesSearchScope {
         }
         return Platform.StringUtilities.naturalOrderComparator(uiSourceCode1.fullDisplayName(), uiSourceCode2.fullDisplayName());
     }
+    static urlComparator(uiSourceCode1, uiSourceCode2) {
+        return Platform.StringUtilities.naturalOrderComparator(uiSourceCode1.url(), uiSourceCode2.url());
+    }
     performIndexing(progress) {
         this.stopSearch();
         const projects = this.projects();
         const compositeProgress = new Common.Progress.CompositeProgress(progress);
         for (let i = 0; i < projects.length; ++i) {
             const project = projects[i];
-            const projectProgress = compositeProgress.createSubProgress(project.uiSourceCodes().length);
+            const projectProgress = compositeProgress.createSubProgress([...project.uiSourceCodes()].length);
             project.indexContent(projectProgress);
         }
     }
     projects() {
-        const searchInAnonymousAndContentScripts = Common.Settings.Settings.instance().moduleSetting('searchInAnonymousAndContentScripts').get();
+        const searchInAnonymousAndContentScripts = Common.Settings.Settings.instance().moduleSetting('search-in-anonymous-and-content-scripts').get();
         return Workspace.Workspace.WorkspaceImpl.instance().projects().filter(project => {
             if (project.type() === Workspace.Workspace.projectTypes.Service) {
                 return false;
@@ -108,22 +111,23 @@ export class SourcesSearchScope {
         const searchContentProgress = compositeProgress.createSubProgress();
         const findMatchingFilesProgress = new Common.Progress.CompositeProgress(compositeProgress.createSubProgress());
         for (const project of this.projects()) {
-            const weight = project.uiSourceCodes().length;
+            const weight = [...project.uiSourceCodes()].length;
             const findMatchingFilesInProjectProgress = findMatchingFilesProgress.createSubProgress(weight);
-            const filesMathingFileQuery = this.projectFilesMatchingFileQuery(project, searchConfig);
+            const filesMatchingFileQuery = this.projectFilesMatchingFileQuery(project, searchConfig);
             const promise = project
-                .findFilesMatchingSearchRequest(searchConfig, filesMathingFileQuery, findMatchingFilesInProjectProgress)
-                .then(this.processMatchingFilesForProject.bind(this, this.searchId, project, searchConfig, filesMathingFileQuery));
+                .findFilesMatchingSearchRequest(searchConfig, filesMatchingFileQuery, findMatchingFilesInProjectProgress)
+                .then(this.processMatchingFilesForProject.bind(this, this.searchId, project, searchConfig, filesMatchingFileQuery));
             promises.push(promise);
         }
-        Promise.all(promises).then(this.processMatchingFiles.bind(this, this.searchId, searchContentProgress, this.searchFinishedCallback.bind(this, true)));
+        void Promise.all(promises).then(this.processMatchingFiles.bind(this, this.searchId, searchContentProgress, this.searchFinishedCallback.bind(this, true)));
     }
     projectFilesMatchingFileQuery(project, searchConfig, dirtyOnly) {
         const result = [];
-        const uiSourceCodes = project.uiSourceCodes();
-        for (let i = 0; i < uiSourceCodes.length; ++i) {
-            const uiSourceCode = uiSourceCodes[i];
+        for (const uiSourceCode of project.uiSourceCodes()) {
             if (!uiSourceCode.contentType().isTextType()) {
+                continue;
+            }
+            if (Bindings.IgnoreListManager.IgnoreListManager.instance().isUserOrSourceMapIgnoreListedUISourceCode(uiSourceCode)) {
                 continue;
             }
             const binding = Persistence.Persistence.PersistenceImpl.instance().binding(uiSourceCode);
@@ -134,27 +138,24 @@ export class SourcesSearchScope {
                 continue;
             }
             if (searchConfig.filePathMatchesFileQuery(uiSourceCode.fullDisplayName())) {
-                result.push(uiSourceCode.url());
+                result.push(uiSourceCode);
             }
         }
-        result.sort(Platform.StringUtilities.naturalOrderComparator);
+        result.sort(SourcesSearchScope.urlComparator);
         return result;
     }
-    processMatchingFilesForProject(searchId, project, searchConfig, filesMathingFileQuery, files) {
+    processMatchingFilesForProject(searchId, project, searchConfig, filesMatchingFileQuery, filesWithPreliminaryResult) {
         if (searchId !== this.searchId && this.searchFinishedCallback) {
             this.searchFinishedCallback(false);
             return;
         }
-        files.sort(Platform.StringUtilities.naturalOrderComparator);
-        files = Platform.ArrayUtilities.intersectOrdered(files, filesMathingFileQuery, Platform.StringUtilities.naturalOrderComparator);
+        let files = [...filesWithPreliminaryResult.keys()];
+        files.sort(SourcesSearchScope.urlComparator);
+        files = Platform.ArrayUtilities.intersectOrdered(files, filesMatchingFileQuery, SourcesSearchScope.urlComparator);
         const dirtyFiles = this.projectFilesMatchingFileQuery(project, searchConfig, true);
-        files = Platform.ArrayUtilities.mergeOrdered(files, dirtyFiles, Platform.StringUtilities.naturalOrderComparator);
+        files = Platform.ArrayUtilities.mergeOrdered(files, dirtyFiles, SourcesSearchScope.urlComparator);
         const uiSourceCodes = [];
-        for (const file of files) {
-            const uiSourceCode = project.uiSourceCodeForURL(file);
-            if (!uiSourceCode) {
-                continue;
-            }
+        for (const uiSourceCode of files) {
             const script = Bindings.DefaultScriptMapping.DefaultScriptMapping.scriptForUISourceCode(uiSourceCode);
             if (script && !script.isAnonymousScript()) {
                 continue;
@@ -187,7 +188,7 @@ export class SourcesSearchScope {
                 contentLoaded.call(this, uiSourceCode, uiSourceCode.workingCopy());
             }
             else {
-                uiSourceCode.requestContent().then(deferredContent => {
+                void uiSourceCode.requestContent().then(deferredContent => {
                     contentLoaded.call(this, uiSourceCode, deferredContent.content || '');
                 });
             }
@@ -203,12 +204,9 @@ export class SourcesSearchScope {
             }
             ++callbacksLeft;
             const uiSourceCode = files[fileIndex++];
-            setTimeout(searchInNextFile.bind(this, uiSourceCode), 0);
+            window.setTimeout(searchInNextFile.bind(this, uiSourceCode), 0);
         }
         function contentLoaded(uiSourceCode, content) {
-            function matchesComparator(a, b) {
-                return a.lineNumber - b.lineNumber;
-            }
             progress.incrementWorked(1);
             let matches = [];
             const searchConfig = this.searchConfig;
@@ -216,7 +214,10 @@ export class SourcesSearchScope {
             if (content !== null) {
                 for (let i = 0; i < queries.length; ++i) {
                     const nextMatches = TextUtils.TextUtils.performSearchInContent(content, queries[i], !searchConfig.ignoreCase(), searchConfig.isRegex());
-                    matches = Platform.ArrayUtilities.mergeOrdered(matches, nextMatches, matchesComparator);
+                    matches = Platform.ArrayUtilities.mergeOrdered(matches, nextMatches, TextUtils.ContentProvider.SearchMatch.comparator);
+                }
+                if (!searchConfig.queries().length) {
+                    matches = [new TextUtils.ContentProvider.SearchMatch(0, (new TextUtils.Text.Text(content)).lineAt(0), 0, 0)];
                 }
             }
             if (matches && this.searchResultCallback) {
@@ -251,13 +252,18 @@ export class FileBasedSearchResult {
         return this.searchMatches[index].lineContent;
     }
     matchRevealable(index) {
-        const match = this.searchMatches[index];
-        return this.uiSourceCode.uiLocation(match.lineNumber, match.columnNumber);
+        const { lineNumber, columnNumber, matchLength } = this.searchMatches[index];
+        const range = new TextUtils.TextRange.TextRange(lineNumber, columnNumber, lineNumber, columnNumber + matchLength);
+        return new Workspace.UISourceCode.UILocationRange(this.uiSourceCode, range);
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     matchLabel(index) {
-        return this.searchMatches[index].lineNumber + 1;
+        return String(this.searchMatches[index].lineNumber + 1);
+    }
+    matchColumn(index) {
+        return this.searchMatches[index].columnNumber;
+    }
+    matchLength(index) {
+        return this.searchMatches[index].matchLength;
     }
 }
 //# sourceMappingURL=SourcesSearchScope.js.map

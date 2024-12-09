@@ -30,7 +30,7 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper {
             throw new Error('Observer can only be registered once');
         }
         if (!this.#observers.size) {
-            this.poll();
+            void this.poll();
         }
         this.#observers.add(observer);
         for (const isolate of this.#isolatesInternal.values()) {
@@ -44,7 +44,7 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper {
         } // Stops the current polling loop.
     }
     modelAdded(model) {
-        this.modelAddedInternal(model);
+        void this.modelAddedInternal(model);
     }
     async modelAddedInternal(model) {
         this.#isolateIdByModel.set(model, null);
@@ -107,16 +107,10 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper {
         const pollId = this.#pollId;
         while (pollId === this.#pollId) {
             await Promise.all(Array.from(this.isolates(), isolate => isolate.update()));
-            await new Promise(r => setTimeout(r, PollIntervalMs));
+            await new Promise(r => window.setTimeout(r, PollIntervalMs));
         }
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["MemoryChanged"] = "MemoryChanged";
-})(Events || (Events = {}));
 export const MemoryTrendWindowMs = 120e3;
 const PollIntervalMs = 2e3;
 export class Isolate {
@@ -152,7 +146,7 @@ export class Isolate {
         }
         this.#usedHeapSizeInternal = usage.usedSize;
         this.#memoryTrend.add(this.#usedHeapSizeInternal);
-        IsolateManager.instance().dispatchEventToListeners(Events.MemoryChanged, this);
+        IsolateManager.instance().dispatchEventToListeners("MemoryChanged" /* Events.MemoryChanged */, this);
     }
     samplesCount() {
         return this.#memoryTrend.count();

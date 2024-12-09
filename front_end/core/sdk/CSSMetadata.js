@@ -1,37 +1,6 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/*
- * Copyright (C) 2010 Nikita Vasilyev. All rights reserved.
- * Copyright (C) 2010 Joseph Pecoraro. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the #name of Google Inc. nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 import * as SupportedCSSProperties from '../../generated/SupportedCSSProperties.js';
 import * as Common from '../common/common.js';
 import * as Platform from '../platform/platform.js';
@@ -81,7 +50,7 @@ export class CSSMetadata {
                 }
             }
         }
-        this.#values.sort(CSSMetadata.sortPrefixesToEnd);
+        this.#values.sort(CSSMetadata.sortPrefixesAndCSSWideKeywordsToEnd);
         this.#valuesSet = new Set(this.#values);
         // Reads in auto-generated property names and #values from blink/public/renderer/core/css/css_properties.json5
         // treats _generatedPropertyValues as basis
@@ -114,7 +83,7 @@ export class CSSMetadata {
         for (const name of this.#valuesSet) {
             const values = this.specificPropertyValues(name)
                 .filter(value => CSS.supports(name, value))
-                .sort(CSSMetadata.sortPrefixesToEnd);
+                .sort(CSSMetadata.sortPrefixesAndCSSWideKeywordsToEnd);
             const presets = values.map(value => `${name}: ${value}`);
             if (!this.isSVGProperty(name)) {
                 this.#nameValuePresetsInternal.push(...presets);
@@ -122,7 +91,15 @@ export class CSSMetadata {
             this.#nameValuePresetsIncludingSVG.push(...presets);
         }
     }
-    static sortPrefixesToEnd(a, b) {
+    static sortPrefixesAndCSSWideKeywordsToEnd(a, b) {
+        const aIsCSSWideKeyword = CSSWideKeywords.includes(a);
+        const bIsCSSWideKeyword = CSSWideKeywords.includes(b);
+        if (aIsCSSWideKeyword && !bIsCSSWideKeyword) {
+            return 1;
+        }
+        if (!aIsCSSWideKeyword && bIsCSSWideKeyword) {
+            return -1;
+        }
         const aIsPrefixed = a.startsWith('-webkit-');
         const bIsPrefixed = b.startsWith('-webkit-');
         if (aIsPrefixed && !bIsPrefixed) {
@@ -135,6 +112,9 @@ export class CSSMetadata {
     }
     allProperties() {
         return this.#values;
+    }
+    aliasesFor() {
+        return this.#aliasesFor;
     }
     nameValuePresets(includeSVG) {
         return includeSVG ? this.#nameValuePresetsIncludingSVG : this.#nameValuePresetsInternal;
@@ -243,16 +223,16 @@ export class CSSMetadata {
         return keywords;
     }
     getPropertyValues(propertyName) {
-        const acceptedKeywords = ['inherit', 'initial', 'revert', 'unset'];
         propertyName = propertyName.toLowerCase();
-        acceptedKeywords.push(...this.specificPropertyValues(propertyName));
+        // Add CSS-wide keywords to all properties.
+        const acceptedKeywords = [...this.specificPropertyValues(propertyName), ...CSSWideKeywords];
         if (this.isColorAwareProperty(propertyName)) {
             acceptedKeywords.push('currentColor');
             for (const color of Common.Color.Nicknames.keys()) {
                 acceptedKeywords.push(color);
             }
         }
-        return acceptedKeywords.sort(CSSMetadata.sortPrefixesToEnd);
+        return acceptedKeywords.sort(CSSMetadata.sortPrefixesAndCSSWideKeywordsToEnd);
     }
     propertyUsageWeight(property) {
         return Weight.get(property) || Weight.get(this.canonicalPropertyName(property)) || 0;
@@ -273,8 +253,18 @@ export class CSSMetadata {
         }
         return { text, startColumn, endColumn };
     }
+    isHighlightPseudoType(pseudoType) {
+        return (pseudoType === "highlight" /* Protocol.DOM.PseudoType.Highlight */ || pseudoType === "selection" /* Protocol.DOM.PseudoType.Selection */ ||
+            pseudoType === "target-text" /* Protocol.DOM.PseudoType.TargetText */ || pseudoType === "grammar-error" /* Protocol.DOM.PseudoType.GrammarError */ ||
+            pseudoType === "spelling-error" /* Protocol.DOM.PseudoType.SpellingError */);
+    }
 }
-export const VariableRegex = /(var\(\s*--.*?\))/g;
+// CSS-wide keywords.
+// Spec: https://drafts.csswg.org/css-cascade/#defaulting-keywords
+// https://drafts.csswg.org/css-cascade-5/#revert-layer
+export const CSSWideKeywords = ['inherit', 'initial', 'revert', 'revert-layer', 'unset'];
+export const VariableNameRegex = /(\s*--.*?)/gs;
+export const VariableRegex = /(var\(\s*--.*?\))/gs;
 export const CustomVariableRegex = /(var\(*--[\w\d]+-([\w]+-[\w]+)\))/g;
 export const URLRegex = /url\(\s*('.+?'|".+?"|[^)]+)\s*\)/g;
 /**
@@ -406,8 +396,14 @@ const colorAwareProperties = new Set([
     'content',
     'fill',
     'list-style-image',
+    'mask',
+    'mask-image',
+    'mask-border',
+    'mask-border-source',
     'outline',
     'outline-color',
+    'scrollbar-color',
+    'stop-color',
     'stroke',
     'text-decoration-color',
     'text-shadow',
@@ -427,7 +423,6 @@ const colorAwareProperties = new Set([
     '-webkit-mask-box-image-source',
     '-webkit-mask-image',
     '-webkit-tap-highlight-color',
-    '-webkit-text-decoration-color',
     '-webkit-text-emphasis',
     '-webkit-text-emphasis-color',
     '-webkit-text-fill-color',
@@ -515,7 +510,6 @@ const extraPropertyValues = {
             'ui-monospace',
             'ui-rounded',
             '-webkit-body',
-            '-webkit-pictograph',
         ],
     },
     'zoom': { values: ['normal'] },
@@ -714,8 +708,6 @@ const extraPropertyValues = {
             'sepia',
         ],
     },
-    'mix-blend-mode': { values: ['unset'] },
-    'background-blend-mode': { values: ['unset'] },
     'grid-template-columns': { values: ['min-content', 'max-content'] },
     'grid-template-rows': { values: ['min-content', 'max-content'] },
     'grid-auto-flow': { values: ['dense'] },
@@ -1006,7 +998,6 @@ const extraPropertyValues = {
     '-webkit-border-start-width': { values: ['medium', 'thick', 'thin'] },
     '-webkit-logical-height': { values: ['-webkit-fill-available', 'min-content', 'max-content', 'fit-content'] },
     '-webkit-logical-width': { values: ['-webkit-fill-available', 'min-content', 'max-content', 'fit-content'] },
-    '-webkit-margin-collapse': { values: ['collapse', 'separate', 'discard'] },
     '-webkit-mask-box-image': { values: ['repeat', 'stretch', 'space', 'round'] },
     '-webkit-mask-box-image-repeat': { values: ['repeat', 'stretch', 'space', 'round'] },
     '-webkit-mask-clip': { values: ['text', 'border', 'border-box', 'content', 'content-box', 'padding', 'padding-box'] },
@@ -1045,6 +1036,25 @@ const extraPropertyValues = {
     '-webkit-transform-origin-x': { values: ['left', 'right', 'center'] },
     '-webkit-transform-origin-y': { values: ['top', 'bottom', 'center'] },
     'width': { values: ['-webkit-fill-available'] },
+    'contain-intrinsic-width': { values: ['auto none', 'auto 100px'] },
+    'contain-intrinsic-height': { values: ['auto none', 'auto 100px'] },
+    'contain-intrinsic-size': { values: ['auto none', 'auto 100px'] },
+    'contain-intrinsic-inline-size': { values: ['auto none', 'auto 100px'] },
+    'contain-intrinsic-block-size': { values: ['auto none', 'auto 100px'] },
+    // Due to some compatibility issues[1] with Chrome's implementation[2],
+    // only a few legacy values are added here.
+    // [1]: https://github.com/w3c/csswg-drafts/issues/9102#issuecomment-1807453214
+    // [2]: https://chromium-review.googlesource.com/c/chromium/src/+/4232738
+    'white-space': {
+        values: [
+            'normal', // equal to: `collapse wrap`
+            'pre', // equal to: `preserve nowrap`
+            'pre-wrap', // equal to: `preserve wrap`
+            'pre-line', // equal to: `preserve-breaks wrap`
+            'nowrap', // equal to: `collapse nowrap`
+            'break-spaces', // equal to: `break-spaces wrap`, Chrome 76, crbug.com/767634#c28
+        ],
+    },
 };
 // Weight of CSS properties based on their usage from https://www.chromestatus.com/metrics/css/popularity
 const Weight = new Map([
@@ -1259,7 +1269,6 @@ const Weight = new Map([
     ['-webkit-filter', 159],
     ['-webkit-font-feature-settings', 59],
     ['-webkit-font-smoothing', 177],
-    ['-webkit-highlight', 1],
     ['-webkit-line-break', 45],
     ['-webkit-line-clamp', 126],
     ['-webkit-margin-after', 67],
@@ -1267,7 +1276,6 @@ const Weight = new Map([
     ['-webkit-margin-collapse', 14],
     ['-webkit-margin-end', 65],
     ['-webkit-margin-start', 100],
-    ['-webkit-margin-top-collapse', 78],
     ['-webkit-mask', 19],
     ['-webkit-mask-box-image', 72],
     ['-webkit-mask-image', 88],

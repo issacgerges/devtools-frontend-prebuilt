@@ -8,52 +8,52 @@ import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import performanceMonitorStyles from './performanceMonitor.css.js';
 const UIStrings = {
     /**
-    *@description Aria accessible name in Performance Monitor of the Performance monitor tab
-    */
+     *@description Aria accessible name in Performance Monitor of the Performance monitor tab
+     */
     graphsDisplayingARealtimeViewOf: 'Graphs displaying a real-time view of performance metrics',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     paused: 'Paused',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     cpuUsage: 'CPU usage',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     jsHeapSize: 'JS heap size',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     domNodes: 'DOM Nodes',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     jsEventListeners: 'JS event listeners',
     /**
-    *@description Text for documents, a type of resources
-    */
+     *@description Text for documents, a type of resources
+     */
     documents: 'Documents',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     documentFrames: 'Document Frames',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     layoutsSec: 'Layouts / sec',
     /**
-    *@description Text in Performance Monitor of the Performance monitor tab
-    */
+     *@description Text in Performance Monitor of the Performance monitor tab
+     */
     styleRecalcsSec: 'Style recalcs / sec',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/performance_monitor/PerformanceMonitor.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
-let performanceMonitorImplInstance;
 export class PerformanceMonitorImpl extends UI.Widget.HBox {
     metricsBuffer;
     pixelsPerMs;
@@ -69,55 +69,57 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
     model;
     startTimestamp;
     pollTimer;
-    constructor() {
+    constructor(pollIntervalMs = 500) {
         super(true);
+        this.element.setAttribute('jslog', `${VisualLogging.panel('performance.monitor').track({ resize: true })}`);
         this.contentElement.classList.add('perfmon-pane');
         this.metricsBuffer = [];
         /** @const */
         this.pixelsPerMs = 10 / 1000;
         /** @const */
-        this.pollIntervalMs = 500;
+        this.pollIntervalMs = pollIntervalMs;
         /** @const */
         this.scaleHeight = 16;
         /** @const */
         this.graphHeight = 90;
-        this.gridColor = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.08)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        this.gridColor = ThemeSupport.ThemeSupport.instance().getComputedValue('--divider-line');
         this.controlPane = new ControlPane(this.contentElement);
         const chartContainer = this.contentElement.createChild('div', 'perfmon-chart-container');
         this.canvas = chartContainer.createChild('canvas');
         this.canvas.tabIndex = -1;
-        UI.ARIAUtils.setAccessibleName(this.canvas, i18nString(UIStrings.graphsDisplayingARealtimeViewOf));
+        UI.ARIAUtils.setLabel(this.canvas, i18nString(UIStrings.graphsDisplayingARealtimeViewOf));
         this.contentElement.createChild('div', 'perfmon-chart-suspend-overlay fill').createChild('div').textContent =
             i18nString(UIStrings.paused);
-        this.controlPane.addEventListener("MetricChanged" /* MetricChanged */, this.recalcChartHeight, this);
+        this.controlPane.addEventListener("MetricChanged" /* Events.MetricChanged */, this.recalcChartHeight, this);
         SDK.TargetManager.TargetManager.instance().observeModels(SDK.PerformanceMetricsModel.PerformanceMetricsModel, this);
-    }
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!performanceMonitorImplInstance || forceNew) {
-            performanceMonitorImplInstance = new PerformanceMonitorImpl();
-        }
-        return performanceMonitorImplInstance;
     }
     wasShown() {
         if (!this.model) {
             return;
         }
         this.registerCSSFiles([performanceMonitorStyles]);
-        SDK.TargetManager.TargetManager.instance().addEventListener(SDK.TargetManager.Events.SuspendStateChanged, this.suspendStateChanged, this);
-        this.model.enable();
+        this.controlPane.instantiateMetricData();
+        const themeSupport = ThemeSupport.ThemeSupport.instance();
+        themeSupport.addEventListener(ThemeSupport.ThemeChangeEvent.eventName, () => {
+            // instantiateMetricData sets the colors for the metrics, which we need
+            // to re-evaluate when the theme changes before re-drawing the canvas.
+            this.controlPane.instantiateMetricData();
+            this.draw();
+        });
+        SDK.TargetManager.TargetManager.instance().addEventListener("SuspendStateChanged" /* SDK.TargetManager.Events.SuspendStateChanged */, this.suspendStateChanged, this);
+        void this.model.enable();
         this.suspendStateChanged();
     }
     willHide() {
         if (!this.model) {
             return;
         }
-        SDK.TargetManager.TargetManager.instance().removeEventListener(SDK.TargetManager.Events.SuspendStateChanged, this.suspendStateChanged, this);
+        SDK.TargetManager.TargetManager.instance().removeEventListener("SuspendStateChanged" /* SDK.TargetManager.Events.SuspendStateChanged */, this.suspendStateChanged, this);
         this.stopPolling();
-        this.model.disable();
+        void this.model.disable();
     }
     modelAdded(model) {
-        if (this.model) {
+        if (model.target() !== SDK.TargetManager.TargetManager.instance().primaryPageTarget()) {
             return;
         }
         this.model = model;
@@ -198,9 +200,9 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
     }
     drawHorizontalGrid(ctx) {
         const labelDistanceSeconds = 10;
-        const lightGray = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.02)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        const lightGray = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-inverted-opacity-2');
         ctx.font = '10px ' + Host.Platform.fontFamily();
-        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.55)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-inverted-opacity-50');
         const currentTime = Date.now() / 1000;
         for (let sec = Math.ceil(currentTime);; --sec) {
             const x = this.width - ((currentTime - sec) * 1000 - this.pollIntervalMs) * this.pixelsPerMs;
@@ -233,16 +235,17 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
                 color: metricInfo.color,
             });
         }
-        const backgroundColor = Common.Color.Color.parse(UI.Utils.getThemeColorValue('--color-background'));
+        const backgroundColor = Common.Color.parse(ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-cdt-base-container'))
+            ?.asLegacyColor();
         if (backgroundColor) {
             for (const path of paths.reverse()) {
                 const color = path.color;
                 ctx.save();
-                const parsedColor = Common.Color.Color.parse(color);
+                const parsedColor = Common.Color.parse(color);
                 if (!parsedColor) {
                     continue;
                 }
-                ctx.fillStyle = backgroundColor.blendWith(parsedColor.setAlpha(0.2)).asString(null) || '';
+                ctx.fillStyle = backgroundColor.blendWith(parsedColor.setAlpha(0.2).asLegacyColor()).asString() || '';
                 ctx.fill(path.path);
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 0.5;
@@ -250,7 +253,7 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
                 ctx.restore();
             }
         }
-        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.55)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-inverted-opacity-50');
         ctx.font = `10px  ${Host.Platform.fontFamily()}`;
         ctx.fillText(chartInfo.title, 8, 10);
         this.drawVerticalGrid(ctx, height - bottomPadding, max, chartInfo);
@@ -294,7 +297,7 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
         const span = max;
         const topPadding = 18;
         const visibleHeight = height - topPadding;
-        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.55)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        ctx.fillStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-inverted-opacity-50');
         ctx.strokeStyle = this.gridColor;
         ctx.beginPath();
         for (let i = 0; i < 2; ++i) {
@@ -311,7 +314,7 @@ export class PerformanceMonitorImpl extends UI.Widget.HBox {
         ctx.beginPath();
         ctx.moveTo(0, height + 0.5);
         ctx.lineTo(this.width, height + 0.5);
-        ctx.strokeStyle = ThemeSupport.ThemeSupport.instance().patchColorText('rgba(0, 0, 0, 0.2)', ThemeSupport.ThemeSupport.ColorUsage.Foreground);
+        ctx.strokeStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background-inverted-opacity-2');
         ctx.stroke();
         function calcY(value) {
             return Math.round(height - visibleHeight * value / span) + 0.5;
@@ -393,13 +396,15 @@ export class ControlPane extends Common.ObjectWrapper.ObjectWrapper {
     element;
     enabledChartsSetting;
     enabledCharts;
-    chartsInfo;
-    indicators;
+    chartsInfo = [];
+    indicators = new Map();
     constructor(parent) {
         super();
         this.element = parent.createChild('div', 'perfmon-control-pane');
-        this.enabledChartsSetting = Common.Settings.Settings.instance().createSetting('perfmonActiveIndicators2', ['TaskDuration', 'JSHeapTotalSize', 'Nodes']);
+        this.enabledChartsSetting = Common.Settings.Settings.instance().createSetting('perfmon-active-indicators2', ['TaskDuration', 'JSHeapTotalSize', 'Nodes']);
         this.enabledCharts = new Set(this.enabledChartsSetting.get());
+    }
+    instantiateMetricData() {
         const defaults = {
             color: undefined,
             format: undefined,
@@ -408,58 +413,118 @@ export class ControlPane extends Common.ObjectWrapper.ObjectWrapper {
             smooth: undefined,
             stacked: undefined,
         };
+        // Get ThemeSupport instance here just to make things a little less verbose.
+        const themeSupport = ThemeSupport.ThemeSupport.instance();
         this.chartsInfo = [
             {
                 ...defaults,
                 title: i18nString(UIStrings.cpuUsage),
                 metrics: [
-                    { name: 'TaskDuration', color: '#999' },
-                    { name: 'ScriptDuration', color: 'orange' },
-                    { name: 'LayoutDuration', color: 'blueviolet' },
-                    { name: 'RecalcStyleDuration', color: 'violet' },
+                    {
+                        name: 'TaskDuration',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-cpu-task-duration', this.element),
+                    },
+                    {
+                        name: 'ScriptDuration',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-cpu-script-duration', this.element),
+                    },
+                    {
+                        name: 'LayoutDuration',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-cpu-layout-duration', this.element),
+                    },
+                    {
+                        name: 'RecalcStyleDuration',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-cpu-recalc-style-duration', this.element),
+                    },
                 ],
-                format: "Percent" /* Percent */,
+                format: "Percent" /* Format.Percent */,
                 smooth: true,
                 stacked: true,
-                color: 'red',
+                color: themeSupport.getComputedValue('--override-color-perf-monitor-cpu', this.element),
                 max: 1,
                 currentMax: undefined,
             },
             {
                 ...defaults,
                 title: i18nString(UIStrings.jsHeapSize),
-                metrics: [{ name: 'JSHeapTotalSize', color: '#99f' }, { name: 'JSHeapUsedSize', color: 'blue' }],
-                format: "Bytes" /* Bytes */,
-                color: 'blue',
+                metrics: [
+                    {
+                        name: 'JSHeapTotalSize',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-jsheap-total-size', this.element),
+                    },
+                    {
+                        name: 'JSHeapUsedSize',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-jsheap-used-size', this.element),
+                    },
+                ],
+                format: "Bytes" /* Format.Bytes */,
+                color: themeSupport.getComputedValue('--override-color-perf-monitor-jsheap'),
             },
-            { ...defaults, title: i18nString(UIStrings.domNodes), metrics: [{ name: 'Nodes', color: 'green' }] },
+            {
+                ...defaults,
+                title: i18nString(UIStrings.domNodes),
+                metrics: [
+                    {
+                        name: 'Nodes',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-dom-nodes', this.element),
+                    },
+                ],
+            },
             {
                 ...defaults,
                 title: i18nString(UIStrings.jsEventListeners),
-                metrics: [{ name: 'JSEventListeners', color: 'yellowgreen' }],
+                metrics: [
+                    {
+                        name: 'JSEventListeners',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-js-event-listeners', this.element),
+                    },
+                ],
             },
-            { ...defaults, title: i18nString(UIStrings.documents), metrics: [{ name: 'Documents', color: 'darkblue' }] },
-            { ...defaults, title: i18nString(UIStrings.documentFrames), metrics: [{ name: 'Frames', color: 'darkcyan' }] },
-            { ...defaults, title: i18nString(UIStrings.layoutsSec), metrics: [{ name: 'LayoutCount', color: 'hotpink' }] },
+            {
+                ...defaults,
+                title: i18nString(UIStrings.documents),
+                metrics: [{
+                        name: 'Documents',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-documents', this.element),
+                    }],
+            },
+            {
+                ...defaults,
+                title: i18nString(UIStrings.documentFrames),
+                metrics: [{
+                        name: 'Frames',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-document-frames', this.element),
+                    }],
+            },
+            {
+                ...defaults,
+                title: i18nString(UIStrings.layoutsSec),
+                metrics: [{
+                        name: 'LayoutCount',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-layout-count', this.element),
+                    }],
+            },
             {
                 ...defaults,
                 title: i18nString(UIStrings.styleRecalcsSec),
-                metrics: [{ name: 'RecalcStyleCount', color: 'deeppink' }],
+                metrics: [
+                    {
+                        name: 'RecalcStyleCount',
+                        color: themeSupport.getComputedValue('--override-color-perf-monitor-recalc-style-count', this.element),
+                    },
+                ],
             },
         ];
-        for (const info of this.chartsInfo) {
-            if (info.color) {
-                info.color = ThemeSupport.ThemeSupport.instance().patchColorText(info.color, ThemeSupport.ThemeSupport.ColorUsage.Foreground);
-            }
-            for (const metric of info.metrics) {
-                metric.color = ThemeSupport.ThemeSupport.instance().patchColorText(metric.color, ThemeSupport.ThemeSupport.ColorUsage.Foreground);
-            }
-        }
+        // Clear any existing child elements.
+        this.element.removeChildren();
         this.indicators = new Map();
         for (const chartInfo of this.chartsInfo) {
             const chartName = chartInfo.metrics[0].name;
             const active = this.enabledCharts.has(chartName);
             const indicator = new MetricIndicator(this.element, chartInfo, active, this.onToggle.bind(this, chartName));
+            indicator.element.setAttribute('jslog', `${VisualLogging.toggle()
+                .track({ click: true, keydown: 'Enter' })
+                .context(Platform.StringUtilities.toKebabCase(chartName))}`);
             this.indicators.set(chartName, indicator);
         }
     }
@@ -471,7 +536,7 @@ export class ControlPane extends Common.ObjectWrapper.ObjectWrapper {
             this.enabledCharts.delete(chartName);
         }
         this.enabledChartsSetting.set(Array.from(this.enabledCharts));
-        this.dispatchEventToListeners("MetricChanged" /* MetricChanged */);
+        this.dispatchEventToListeners("MetricChanged" /* Events.MetricChanged */);
     }
     charts() {
         return this.chartsInfo;
@@ -495,29 +560,24 @@ let numberFormatter;
 let percentFormatter;
 export class MetricIndicator {
     info;
-    active;
-    onToggle;
     element;
     swatchElement;
     valueElement;
+    color;
     constructor(parent, info, active, onToggle) {
-        const color = info.color || info.metrics[0].color;
+        this.color = info.color || info.metrics[0].color;
         this.info = info;
-        this.active = active;
-        this.onToggle = onToggle;
         this.element = parent.createChild('div', 'perfmon-indicator');
-        this.swatchElement = UI.Icon.Icon.create('smallicon-checkmark-square', 'perfmon-indicator-swatch');
-        this.swatchElement.style.backgroundColor = color;
+        const chartName = info.metrics[0].name;
+        this.swatchElement = UI.UIUtils.CheckboxLabel.create(info.title, active, undefined, chartName);
         this.element.appendChild(this.swatchElement);
-        this.element.createChild('div', 'perfmon-indicator-title').textContent = info.title;
+        this.swatchElement.checkboxElement.addEventListener('change', () => {
+            onToggle(this.swatchElement.checkboxElement.checked);
+            this.element.classList.toggle('active');
+        });
         this.valueElement = this.element.createChild('div', 'perfmon-indicator-value');
-        this.valueElement.style.color = color;
-        this.element.addEventListener('click', () => this.toggleIndicator());
-        this.element.addEventListener('keypress', event => this.handleKeypress(event));
+        this.valueElement.style.color = this.color;
         this.element.classList.toggle('active', active);
-        UI.ARIAUtils.markAsCheckbox(this.element);
-        UI.ARIAUtils.setChecked(this.element, this.active);
-        this.element.tabIndex = 0;
     }
     static formatNumber(value, info) {
         if (!numberFormatter) {
@@ -525,9 +585,9 @@ export class MetricIndicator {
             percentFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1, style: 'percent' });
         }
         switch (info.format) {
-            case "Percent" /* Percent */:
+            case "Percent" /* Format.Percent */:
                 return percentFormatter.format(value);
-            case "Bytes" /* Bytes */:
+            case "Bytes" /* Format.Bytes */:
                 return Platform.NumberUtilities.bytesToString(value);
             default:
                 return numberFormatter.format(value);
@@ -535,18 +595,6 @@ export class MetricIndicator {
     }
     setValue(value) {
         this.valueElement.textContent = MetricIndicator.formatNumber(value, this.info);
-    }
-    toggleIndicator() {
-        this.active = !this.active;
-        this.element.classList.toggle('active', this.active);
-        UI.ARIAUtils.setChecked(this.element, this.active);
-        this.onToggle(this.active);
-    }
-    handleKeypress(event) {
-        const keyboardEvent = event;
-        if (keyboardEvent.key === ' ' || keyboardEvent.key === 'Enter') {
-            this.toggleIndicator();
-        }
     }
 }
 export const format = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });

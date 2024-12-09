@@ -4,21 +4,20 @@
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import * as Root from '../../core/root/root.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import * as ColorPicker from '../../ui/legacy/components/color_picker/color_picker.js';
 import * as InlineEditor from '../../ui/legacy/components/inline_editor/inline_editor.js';
 import * as UI from '../../ui/legacy/legacy.js';
 const UIStrings = {
     /**
-    * @description Tooltip text for an icon that opens the cubic bezier editor, which is a tool that
-    * allows the user to edit cubic-bezier CSS properties directly.
-    */
+     * @description Tooltip text for an icon that opens the cubic bezier editor, which is a tool that
+     * allows the user to edit cubic-bezier CSS properties directly.
+     */
     openCubicBezierEditor: 'Open cubic bezier editor',
     /**
-    * @description Tooltip text for an icon that opens shadow editor. The shadow editor is a tool
-    * which allows the user to edit CSS shadow properties.
-    */
+     * @description Tooltip text for an icon that opens shadow editor. The shadow editor is a tool
+     * which allows the user to edit CSS shadow properties.
+     */
     openShadowEditor: 'Open shadow editor',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/elements/ColorSwatchPopoverIcon.ts', UIStrings);
@@ -32,7 +31,7 @@ export class BezierPopoverIcon {
     bezierEditor;
     scrollerElement;
     originalPropertyText;
-    constructor(treeElement, swatchPopoverHelper, swatch) {
+    constructor({ treeElement, swatchPopoverHelper, swatch, }) {
         this.treeElement = treeElement;
         this.swatchPopoverHelper = swatchPopoverHelper;
         this.swatch = swatch;
@@ -43,19 +42,15 @@ export class BezierPopoverIcon {
         this.boundOnScroll = this.onScroll.bind(this);
     }
     iconClick(event) {
-        if (Root.Runtime.experiments.isEnabled('fontEditor')) {
-            Host.userMetrics.cssEditorOpened('bezierEditor');
-        }
         event.consume(true);
         if (this.swatchPopoverHelper.isShowing()) {
             this.swatchPopoverHelper.hide(true);
             return;
         }
-        const cubicBezier = UI.Geometry.CubicBezier.parse(this.swatch.bezierText()) ||
-            UI.Geometry.CubicBezier.parse('linear');
-        this.bezierEditor = new InlineEditor.BezierEditor.BezierEditor(cubicBezier);
-        this.bezierEditor.setBezier(cubicBezier);
-        this.bezierEditor.addEventListener(InlineEditor.BezierEditor.Events.BezierChanged, this.boundBezierChanged);
+        const model = InlineEditor.AnimationTimingModel.AnimationTimingModel.parse(this.swatch.bezierText()) ||
+            InlineEditor.AnimationTimingModel.LINEAR_BEZIER;
+        this.bezierEditor = new InlineEditor.BezierEditor.BezierEditor(model);
+        this.bezierEditor.addEventListener("BezierChanged" /* InlineEditor.BezierEditor.Events.BezierChanged */, this.boundBezierChanged);
         this.swatchPopoverHelper.show(this.bezierEditor, this.swatch.iconElement(), this.onPopoverHidden.bind(this));
         this.scrollerElement = this.swatch.enclosingNodeOrSelfWithClass('style-panes-wrapper');
         if (this.scrollerElement) {
@@ -65,12 +60,12 @@ export class BezierPopoverIcon {
         this.treeElement.parentPane().setEditingStyle(true);
         const uiLocation = Bindings.CSSWorkspaceBinding.CSSWorkspaceBinding.instance().propertyUILocation(this.treeElement.property, false /* forName */);
         if (uiLocation) {
-            Common.Revealer.reveal(uiLocation, true /* omitFocus */);
+            void Common.Revealer.reveal(uiLocation, true /* omitFocus */);
         }
     }
     bezierChanged(event) {
         this.swatch.setBezierText(event.data);
-        this.treeElement.applyStyleText(this.treeElement.renderedPropertyText(), false);
+        void this.treeElement.applyStyleText(this.treeElement.renderedPropertyText(), false);
     }
     onScroll(_event) {
         this.swatchPopoverHelper.hide(true);
@@ -80,16 +75,16 @@ export class BezierPopoverIcon {
             this.scrollerElement.removeEventListener('scroll', this.boundOnScroll, false);
         }
         if (this.bezierEditor) {
-            this.bezierEditor.removeEventListener(InlineEditor.BezierEditor.Events.BezierChanged, this.boundBezierChanged);
+            this.bezierEditor.removeEventListener("BezierChanged" /* InlineEditor.BezierEditor.Events.BezierChanged */, this.boundBezierChanged);
         }
         this.bezierEditor = undefined;
         const propertyText = commitEdit ? this.treeElement.renderedPropertyText() : this.originalPropertyText || '';
-        this.treeElement.applyStyleText(propertyText, true);
+        void this.treeElement.applyStyleText(propertyText, true);
         this.treeElement.parentPane().setEditingStyle(false);
         delete this.originalPropertyText;
     }
 }
-export class ColorSwatchPopoverIcon {
+export class ColorSwatchPopoverIcon extends Common.ObjectWrapper.ObjectWrapper {
     treeElement;
     swatchPopoverHelper;
     swatch;
@@ -100,6 +95,7 @@ export class ColorSwatchPopoverIcon {
     scrollerElement;
     originalPropertyText;
     constructor(treeElement, swatchPopoverHelper, swatch) {
+        super();
         this.treeElement = treeElement;
         this.swatchPopoverHelper = swatchPopoverHelper;
         this.swatch = swatch;
@@ -122,11 +118,11 @@ export class ColorSwatchPopoverIcon {
             if (!value) {
                 continue;
             }
-            const color = Common.Color.Color.parse(value);
+            const color = Common.Color.parse(value.value);
             if (!color) {
                 continue;
             }
-            colors.push(value);
+            colors.push(value.value);
             colorNames.push(cssVariable);
         }
         return { title: 'CSS Variables', mutable: false, matchUserFormat: true, colors: colors, colorNames: colorNames };
@@ -135,11 +131,11 @@ export class ColorSwatchPopoverIcon {
         this.contrastInfo = contrastInfo;
     }
     iconClick(event) {
-        if (Root.Runtime.experiments.isEnabled('fontEditor')) {
-            Host.userMetrics.cssEditorOpened('colorPicker');
-        }
         event.consume(true);
         this.showPopover();
+    }
+    async toggleEyeDropper() {
+        await this.spectrum?.toggleColorPicker();
     }
     showPopover() {
         if (this.swatchPopoverHelper.isShowing()) {
@@ -147,18 +143,15 @@ export class ColorSwatchPopoverIcon {
             return;
         }
         const color = this.swatch.getColor();
-        let format = this.swatch.getFormat();
+        const format = this.swatch.getFormat();
         if (!color || !format) {
             return;
-        }
-        if (format === Common.Color.Format.Original) {
-            format = color.format();
         }
         this.spectrum = new ColorPicker.Spectrum.Spectrum(this.contrastInfo);
         this.spectrum.setColor(color, format);
         this.spectrum.addPalette(this.generateCSSVariablesPalette());
-        this.spectrum.addEventListener(ColorPicker.Spectrum.Events.SizeChanged, this.spectrumResized, this);
-        this.spectrum.addEventListener(ColorPicker.Spectrum.Events.ColorChanged, this.boundSpectrumChanged);
+        this.spectrum.addEventListener("SizeChanged" /* ColorPicker.Spectrum.Events.SizeChanged */, this.spectrumResized, this);
+        this.spectrum.addEventListener("ColorChanged" /* ColorPicker.Spectrum.Events.ColorChanged */, this.boundSpectrumChanged);
         this.swatchPopoverHelper.show(this.spectrum, this.swatch, this.onPopoverHidden.bind(this));
         this.scrollerElement = this.swatch.enclosingNodeOrSelfWithClass('style-panes-wrapper');
         if (this.scrollerElement) {
@@ -168,26 +161,31 @@ export class ColorSwatchPopoverIcon {
         this.treeElement.parentPane().setEditingStyle(true);
         const uiLocation = Bindings.CSSWorkspaceBinding.CSSWorkspaceBinding.instance().propertyUILocation(this.treeElement.property, false /* forName */);
         if (uiLocation) {
-            Common.Revealer.reveal(uiLocation, true /* omitFocus */);
+            void Common.Revealer.reveal(uiLocation, true /* omitFocus */);
         }
+        UI.Context.Context.instance().setFlavor(ColorSwatchPopoverIcon, this);
+        Host.userMetrics.colorPickerOpenedFrom(1 /* Host.UserMetrics.ColorPickerOpenedFrom.StylesPane */);
     }
     spectrumResized() {
         this.swatchPopoverHelper.reposition();
     }
-    spectrumChanged(event) {
-        const color = Common.Color.Color.parse(event.data);
+    async spectrumChanged(event) {
+        const color = Common.Color.parse(event.data);
         if (!color) {
             return;
         }
         const colorName = this.spectrum ? this.spectrum.colorName() : undefined;
-        const text = colorName && colorName.startsWith('--') ? `var(${colorName})` : color.asString();
+        const text = colorName && colorName.startsWith('--') ? `var(${colorName})` : (color.getAuthoredText() ?? color.asString());
         this.swatch.renderColor(color);
         const value = this.swatch.firstElementChild;
         if (value) {
             value.remove();
             this.swatch.createChild('span').textContent = text;
         }
-        this.treeElement.applyStyleText(this.treeElement.renderedPropertyText(), false);
+        // `asString` somehow can return null.
+        if (text) {
+            this.dispatchEventToListeners("colorchanged" /* ColorSwatchPopoverIconEvents.ColorChanged */, text);
+        }
     }
     onScroll(_event) {
         this.swatchPopoverHelper.hide(true);
@@ -197,16 +195,17 @@ export class ColorSwatchPopoverIcon {
             this.scrollerElement.removeEventListener('scroll', this.boundOnScroll, false);
         }
         if (this.spectrum) {
-            this.spectrum.removeEventListener(ColorPicker.Spectrum.Events.ColorChanged, this.boundSpectrumChanged);
+            this.spectrum.removeEventListener("ColorChanged" /* ColorPicker.Spectrum.Events.ColorChanged */, this.boundSpectrumChanged);
         }
         this.spectrum = undefined;
         const propertyText = commitEdit ? this.treeElement.renderedPropertyText() : this.originalPropertyText || '';
-        this.treeElement.applyStyleText(propertyText, true);
+        void this.treeElement.applyStyleText(propertyText, true);
         this.treeElement.parentPane().setEditingStyle(false);
         delete this.originalPropertyText;
+        UI.Context.Context.instance().setFlavor(ColorSwatchPopoverIcon, null);
     }
 }
-export class ShadowSwatchPopoverHelper {
+export class ShadowSwatchPopoverHelper extends Common.ObjectWrapper.ObjectWrapper {
     treeElement;
     swatchPopoverHelper;
     shadowSwatch;
@@ -217,6 +216,7 @@ export class ShadowSwatchPopoverHelper {
     scrollerElement;
     originalPropertyText;
     constructor(treeElement, swatchPopoverHelper, shadowSwatch) {
+        super();
         this.treeElement = treeElement;
         this.swatchPopoverHelper = swatchPopoverHelper;
         this.shadowSwatch = shadowSwatch;
@@ -228,9 +228,6 @@ export class ShadowSwatchPopoverHelper {
         this.boundOnScroll = this.onScroll.bind(this);
     }
     iconClick(event) {
-        if (Root.Runtime.experiments.isEnabled('fontEditor')) {
-            Host.userMetrics.cssEditorOpened('shadowEditor');
-        }
         event.consume(true);
         this.showPopover();
     }
@@ -241,7 +238,7 @@ export class ShadowSwatchPopoverHelper {
         }
         this.cssShadowEditor = new InlineEditor.CSSShadowEditor.CSSShadowEditor();
         this.cssShadowEditor.setModel(this.shadowSwatch.model());
-        this.cssShadowEditor.addEventListener(InlineEditor.CSSShadowEditor.Events.ShadowChanged, this.boundShadowChanged);
+        this.cssShadowEditor.addEventListener("ShadowChanged" /* InlineEditor.CSSShadowEditor.Events.ShadowChanged */, this.boundShadowChanged);
         this.swatchPopoverHelper.show(this.cssShadowEditor, this.iconElement, this.onPopoverHidden.bind(this));
         this.scrollerElement = this.iconElement.enclosingNodeOrSelfWithClass('style-panes-wrapper');
         if (this.scrollerElement) {
@@ -251,12 +248,11 @@ export class ShadowSwatchPopoverHelper {
         this.treeElement.parentPane().setEditingStyle(true);
         const uiLocation = Bindings.CSSWorkspaceBinding.CSSWorkspaceBinding.instance().propertyUILocation(this.treeElement.property, false /* forName */);
         if (uiLocation) {
-            Common.Revealer.reveal(uiLocation, true /* omitFocus */);
+            void Common.Revealer.reveal(uiLocation, true /* omitFocus */);
         }
     }
     shadowChanged(event) {
-        this.shadowSwatch.setCSSShadow(event.data);
-        this.treeElement.applyStyleText(this.treeElement.renderedPropertyText(), false);
+        this.dispatchEventToListeners("shadowChanged" /* ShadowEvents.ShadowChanged */, event.data);
     }
     onScroll(_event) {
         this.swatchPopoverHelper.hide(true);
@@ -266,11 +262,11 @@ export class ShadowSwatchPopoverHelper {
             this.scrollerElement.removeEventListener('scroll', this.boundOnScroll, false);
         }
         if (this.cssShadowEditor) {
-            this.cssShadowEditor.removeEventListener(InlineEditor.CSSShadowEditor.Events.ShadowChanged, this.boundShadowChanged);
+            this.cssShadowEditor.removeEventListener("ShadowChanged" /* InlineEditor.CSSShadowEditor.Events.ShadowChanged */, this.boundShadowChanged);
         }
         this.cssShadowEditor = undefined;
         const propertyText = commitEdit ? this.treeElement.renderedPropertyText() : this.originalPropertyText || '';
-        this.treeElement.applyStyleText(propertyText, true);
+        void this.treeElement.applyStyleText(propertyText, true);
         this.treeElement.parentPane().setEditingStyle(false);
         delete this.originalPropertyText;
     }
@@ -299,7 +295,7 @@ export class FontEditorSectionManager {
     fontChanged(event) {
         const { propertyName, value } = event.data;
         const treeElement = this.treeElementMap.get(propertyName);
-        this.updateFontProperty(propertyName, value, treeElement);
+        void this.updateFontProperty(propertyName, value, treeElement);
     }
     async updateFontProperty(propertyName, value, treeElement) {
         if (treeElement && treeElement.treeOutline && treeElement.valueElement && treeElement.property.parsedOk &&
@@ -381,8 +377,8 @@ export class FontEditorSectionManager {
         this.parentPane = parentPane;
         const propertyValueMap = this.createPropertyValueMap();
         this.fontEditor = new InlineEditor.FontEditor.FontEditor(propertyValueMap);
-        this.fontEditor.addEventListener(InlineEditor.FontEditor.Events.FontChanged, this.boundFontChanged);
-        this.fontEditor.addEventListener(InlineEditor.FontEditor.Events.FontEditorResized, this.boundResized);
+        this.fontEditor.addEventListener("FontChanged" /* InlineEditor.FontEditor.Events.FontChanged */, this.boundFontChanged);
+        this.fontEditor.addEventListener("FontEditorResized" /* InlineEditor.FontEditor.Events.FontEditorResized */, this.boundResized);
         this.swatchPopoverHelper.show(this.fontEditor, iconElement, this.onPopoverHidden.bind(this));
         this.scrollerElement = iconElement.enclosingNodeOrSelfWithClass('style-panes-wrapper');
         if (this.scrollerElement) {
@@ -399,7 +395,7 @@ export class FontEditorSectionManager {
         }
         this.section.onpopulate();
         if (this.fontEditor) {
-            this.fontEditor.removeEventListener(InlineEditor.FontEditor.Events.FontChanged, this.boundFontChanged);
+            this.fontEditor.removeEventListener("FontChanged" /* InlineEditor.FontEditor.Events.FontChanged */, this.boundFontChanged);
         }
         this.fontEditor = null;
         if (this.parentPane) {
@@ -408,8 +404,5 @@ export class FontEditorSectionManager {
         this.section.resetToolbars();
         this.section.onpopulate();
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    static treeElementSymbol = Symbol('FontEditorSectionManager._treeElementSymbol');
 }
 //# sourceMappingURL=ColorSwatchPopoverIcon.js.map

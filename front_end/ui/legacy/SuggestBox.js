@@ -29,26 +29,26 @@
  */
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
-import * as Utils from './utils/utils.js';
+import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import { Size } from './Geometry.js';
 import { GlassPane } from './GlassPane.js';
-import { Icon } from './Icon.js';
 import { ListControl, ListMode } from './ListControl.js';
 import { ListModel } from './ListModel.js';
-import { measurePreferredSize } from './UIUtils.js';
+import suggestBoxStyles from './suggestBox.css.legacy.js';
+import { createShadowRootWithCoreStyles, measuredScrollbarWidth, measurePreferredSize } from './UIUtils.js';
 const UIStrings = {
     /**
-    *@description Aria alert to read the suggestion for the suggestion box when typing in text editor
-    *@example {name} PH1
-    *@example {2} PH2
-    *@example {5} PH3
-    */
+     *@description Aria alert to read the suggestion for the suggestion box when typing in text editor
+     *@example {name} PH1
+     *@example {2} PH2
+     *@example {5} PH3
+     */
     sSuggestionSOfS: '{PH1}, suggestion {PH2} of {PH3}',
     /**
-    *@description Aria alert to confirm the suggestion when it is selected from the suggestion box
-    *@example {name} PH1
-    */
+     *@description Aria alert to confirm the suggestion when it is selected from the suggestion box
+     *@example {name} PH1
+     */
     sSuggestionSSelected: '{PH1}, suggestion selected',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/SuggestBox.ts', UIStrings);
@@ -77,10 +77,11 @@ export class SuggestBox {
         this.element.classList.add('suggest-box');
         this.element.addEventListener('mousedown', event => event.preventDefault(), true);
         this.element.addEventListener('click', this.onClick.bind(this), false);
+        this.element.setAttribute('jslog', `${VisualLogging.menu().parent('mapped').track({ resize: true, keydown: 'ArrowUp|ArrowDown|PageUp|PageDown' })}`);
         this.glassPane = new GlassPane();
-        this.glassPane.setAnchorBehavior("PreferBottom" /* PreferBottom */);
+        this.glassPane.setAnchorBehavior("PreferBottom" /* AnchorBehavior.PreferBottom */);
         this.glassPane.setOutsideClickCallback(this.hide.bind(this));
-        const shadowRoot = Utils.createShadowRootWithCoreStyles(this.glassPane.contentElement, { cssFile: 'ui/legacy/suggestBox.css', delegatesFocus: undefined });
+        const shadowRoot = createShadowRootWithCoreStyles(this.glassPane.contentElement, { cssFile: suggestBoxStyles, delegatesFocus: undefined });
         shadowRoot.appendChild(this.element);
     }
     visible() {
@@ -113,27 +114,28 @@ export class SuggestBox {
             }
         }
         const element = this.createElementForItem(maxItem);
-        const preferredWidth = measurePreferredSize(element, this.element).width + Utils.measuredScrollbarWidth(this.element.ownerDocument);
+        const preferredWidth = measurePreferredSize(element, this.element).width + measuredScrollbarWidth(this.element.ownerDocument);
         return Math.min(kMaxWidth, preferredWidth);
     }
     show() {
         if (this.visible()) {
             return;
         }
+        VisualLogging.setMappedParent(this.element, this.suggestBoxDelegate.ownerElement());
         // TODO(dgozman): take document as a parameter.
         this.glassPane.show(document);
         const suggestion = { text: '1', subtitle: '12' };
         this.rowHeight = measurePreferredSize(this.createElementForItem(suggestion), this.element).height;
-        ARIAUtils.setControls(this.suggestBoxDelegate.ariaControlledBy(), this.element);
-        ARIAUtils.setExpanded(this.suggestBoxDelegate.ariaControlledBy(), true);
+        ARIAUtils.setControls(this.suggestBoxDelegate.ownerElement(), this.element);
+        ARIAUtils.setExpanded(this.suggestBoxDelegate.ownerElement(), true);
     }
     hide() {
         if (!this.visible()) {
             return;
         }
         this.glassPane.hide();
-        ARIAUtils.setControls(this.suggestBoxDelegate.ariaControlledBy(), null);
-        ARIAUtils.setExpanded(this.suggestBoxDelegate.ariaControlledBy(), false);
+        ARIAUtils.setControls(this.suggestBoxDelegate.ownerElement(), null);
+        ARIAUtils.setExpanded(this.suggestBoxDelegate.ownerElement(), false);
     }
     applySuggestion(isIntermediateSuggestion) {
         if (this.onlyCompletion) {
@@ -170,10 +172,6 @@ export class SuggestBox {
         const element = document.createElement('div');
         element.classList.add('suggest-box-content-item');
         element.classList.add('source-code');
-        if (item.iconType) {
-            const icon = Icon.create(item.iconType, 'suggestion-icon');
-            element.appendChild(icon);
-        }
         if (item.isSecondary) {
             element.classList.add('secondary');
         }

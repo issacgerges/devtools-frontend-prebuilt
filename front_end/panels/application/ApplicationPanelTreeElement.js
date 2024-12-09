@@ -8,7 +8,12 @@ export class ApplicationPanelTreeElement extends UI.TreeOutline.TreeElement {
     constructor(resourcesPanel, title, expandable) {
         super(title, expandable);
         this.resourcesPanel = resourcesPanel;
-        UI.ARIAUtils.setAccessibleName(this.listItemElement, title);
+        UI.ARIAUtils.setLabel(this.listItemElement, title);
+        this.listItemElement.tabIndex = -1;
+    }
+    deselect() {
+        super.deselect();
+        this.listItemElement.tabIndex = -1;
     }
     get itemURL() {
         throw new Error('Unimplemented Method');
@@ -39,7 +44,7 @@ export class ExpandableApplicationPanelTreeElement extends ApplicationPanelTreeE
     constructor(resourcesPanel, categoryName, settingsKey, settingsDefault = false) {
         super(resourcesPanel, categoryName, false);
         this.expandedSetting =
-            Common.Settings.Settings.instance().createSetting('resources' + settingsKey + 'Expanded', settingsDefault);
+            Common.Settings.Settings.instance().createSetting('resources-' + settingsKey + '-expanded', settingsDefault);
         this.categoryName = categoryName;
         this.categoryLink = null;
     }

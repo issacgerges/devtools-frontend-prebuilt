@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as i18n from '../../core/i18n/i18n.js';
-import { ColdColorScheme, HotColorScheme, TickingFlameChart } from './TickingFlameChart.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
+import { ColdColorScheme, HotColorScheme, TickingFlameChart, } from './TickingFlameChart.js';
 // Has to be a double, see https://v8.dev/blog/react-cliff
 const NO_NORMALIZED_TIMESTAMP = -1.5;
 const UIStrings = {
     /**
-    *@description Title of the 'Playback Status' button
-    */
+     *@description Title of the 'Playback Status' button
+     */
     playbackStatus: 'Playback Status',
     /**
-    *@description Title of the 'Buffering Status' button
-    */
+     *@description Title of the 'Buffering Status' button
+     */
     bufferingStatus: 'Buffering Status',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/media/EventTimelineView.ts', UIStrings);
@@ -24,6 +25,7 @@ export class PlayerEventsTimeline extends TickingFlameChart {
     videoBufferingStateEvent;
     constructor() {
         super();
+        this.element.setAttribute('jslog', `${VisualLogging.pane('timeline')}`);
         this.normalizedTimestamp = NO_NORMALIZED_TIMESTAMP;
         this.addGroup(i18nString(UIStrings.playbackStatus), 2);
         this.addGroup(i18nString(UIStrings.bufferingStatus), 2); // video on top, audio on bottom

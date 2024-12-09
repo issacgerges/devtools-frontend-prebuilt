@@ -6,20 +6,20 @@ import * as UI from '../../ui/legacy/legacy.js';
 import networkManageCustomHeadersViewStyles from './networkManageCustomHeadersView.css.js';
 const UIStrings = {
     /**
-    *@description Text in Network Manage Custom Headers View of the Network panel
-    */
+     *@description Text in Network Manage Custom Headers View of the Network panel
+     */
     manageHeaderColumns: 'Manage Header Columns',
     /**
-    *@description Placeholder text content in Network Manage Custom Headers View of the Network panel
-    */
+     *@description Placeholder text content in Network Manage Custom Headers View of the Network panel
+     */
     noCustomHeaders: 'No custom headers',
     /**
-    *@description Text of add button in Network Manage Custom Headers View of the Network panel
-    */
+     *@description Text of add button in Network Manage Custom Headers View of the Network panel
+     */
     addCustomHeader: 'Add custom header…',
     /**
-    *@description Text in Network Manage Custom Headers View of the Network panel
-    */
+     *@description Text in Network Manage Custom Headers View of the Network panel
+     */
     headerName: 'Header Name',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/network/NetworkManageCustomHeadersView.ts', UIStrings);
@@ -42,7 +42,10 @@ export class NetworkManageCustomHeadersView extends UI.Widget.VBox {
         placeholder.textContent = i18nString(UIStrings.noCustomHeaders);
         this.list.setEmptyPlaceholder(placeholder);
         this.list.show(this.contentElement);
-        this.contentElement.appendChild(UI.UIUtils.createTextButton(i18nString(UIStrings.addCustomHeader), this.addButtonClicked.bind(this), 'add-button'));
+        this.contentElement.appendChild(UI.UIUtils.createTextButton(i18nString(UIStrings.addCustomHeader), this.addButtonClicked.bind(this), {
+            className: 'add-button',
+            jslogContext: 'network.add-custom-header',
+        }));
         this.columnConfigs = new Map();
         columnData.forEach(columnData => this.columnConfigs.set(columnData.title.toLowerCase(), columnData));
         this.addHeaderColumnCallback = addHeaderColumnCallback;

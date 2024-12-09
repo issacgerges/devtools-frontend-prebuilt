@@ -40,12 +40,12 @@ const UIStrings = {
      */
     showIgnoreList: 'Show Ignore List',
     /**
-    *@description Name of the Settings view
-    */
+     *@description Name of the Settings view
+     */
     settings: 'Settings',
     /**
      *@description Text for the documentation of something
-    */
+     */
     documentation: 'Documentation',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/settings/settings-meta.ts', UIStrings);
@@ -58,122 +58,122 @@ async function loadSettingsModule() {
     return loadedSettingsModule;
 }
 UI.ViewManager.registerViewExtension({
-    location: "settings-view" /* SETTINGS_VIEW */,
+    location: "settings-view" /* UI.ViewManager.ViewLocationValues.SETTINGS_VIEW */,
     id: 'preferences',
     title: i18nLazyString(UIStrings.preferences),
     commandPrompt: i18nLazyString(UIStrings.showPreferences),
     order: 0,
     async loadView() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.GenericSettingsTab.instance();
+        return new Settings.SettingsScreen.GenericSettingsTab();
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "settings-view" /* SETTINGS_VIEW */,
+    location: "settings-view" /* UI.ViewManager.ViewLocationValues.SETTINGS_VIEW */,
     id: 'experiments',
     title: i18nLazyString(UIStrings.experiments),
     commandPrompt: i18nLazyString(UIStrings.showExperiments),
     order: 3,
-    experiment: Root.Runtime.ExperimentName.ALL,
+    experiment: "*" /* Root.Runtime.ExperimentName.ALL */,
     async loadView() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.ExperimentsSettingsTab.instance();
+        return new Settings.SettingsScreen.ExperimentsSettingsTab();
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "settings-view" /* SETTINGS_VIEW */,
+    location: "settings-view" /* UI.ViewManager.ViewLocationValues.SETTINGS_VIEW */,
     id: 'blackbox',
     title: i18nLazyString(UIStrings.ignoreList),
     commandPrompt: i18nLazyString(UIStrings.showIgnoreList),
     order: 4,
     async loadView() {
         const Settings = await loadSettingsModule();
-        return Settings.FrameworkIgnoreListSettingsTab.FrameworkIgnoreListSettingsTab.instance();
+        return new Settings.FrameworkIgnoreListSettingsTab.FrameworkIgnoreListSettingsTab();
     },
 });
 UI.ViewManager.registerViewExtension({
-    location: "settings-view" /* SETTINGS_VIEW */,
+    location: "settings-view" /* UI.ViewManager.ViewLocationValues.SETTINGS_VIEW */,
     id: 'keybinds',
     title: i18nLazyString(UIStrings.shortcuts),
     commandPrompt: i18nLazyString(UIStrings.showShortcuts),
     order: 100,
     async loadView() {
         const Settings = await loadSettingsModule();
-        return Settings.KeybindsSettingsTab.KeybindsSettingsTab.instance();
+        return new Settings.KeybindsSettingsTab.KeybindsSettingsTab();
     },
 });
 UI.ActionRegistration.registerActionExtension({
-    category: UI.ActionRegistration.ActionCategory.SETTINGS,
+    category: "SETTINGS" /* UI.ActionRegistration.ActionCategory.SETTINGS */,
     actionId: 'settings.show',
     title: i18nLazyString(UIStrings.settings),
     async loadActionDelegate() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.ActionDelegate.instance();
+        return new Settings.SettingsScreen.ActionDelegate();
     },
-    iconClass: "largeicon-settings-gear" /* LARGEICON_SETTINGS_GEAR */,
+    iconClass: "gear" /* UI.ActionRegistration.IconClass.LARGEICON_SETTINGS_GEAR */,
     bindings: [
         {
             shortcut: 'F1',
             keybindSets: [
-                "devToolsDefault" /* DEVTOOLS_DEFAULT */,
+                "devToolsDefault" /* UI.ActionRegistration.KeybindSet.DEVTOOLS_DEFAULT */,
             ],
         },
         {
             shortcut: 'Shift+?',
         },
         {
-            platform: "windows,linux" /* WindowsLinux */,
+            platform: "windows,linux" /* UI.ActionRegistration.Platforms.WindowsLinux */,
             shortcut: 'Ctrl+,',
             keybindSets: [
-                "vsCode" /* VS_CODE */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
         {
-            platform: "mac" /* Mac */,
+            platform: "mac" /* UI.ActionRegistration.Platforms.Mac */,
             shortcut: 'Meta+,',
             keybindSets: [
-                "vsCode" /* VS_CODE */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
     ],
 });
 UI.ActionRegistration.registerActionExtension({
-    category: UI.ActionRegistration.ActionCategory.SETTINGS,
+    category: "SETTINGS" /* UI.ActionRegistration.ActionCategory.SETTINGS */,
     actionId: 'settings.documentation',
     title: i18nLazyString(UIStrings.documentation),
     async loadActionDelegate() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.ActionDelegate.instance();
+        return new Settings.SettingsScreen.ActionDelegate();
     },
 });
 UI.ActionRegistration.registerActionExtension({
-    category: UI.ActionRegistration.ActionCategory.SETTINGS,
+    category: "SETTINGS" /* UI.ActionRegistration.ActionCategory.SETTINGS */,
     actionId: 'settings.shortcuts',
-    title: i18nLazyString(UIStrings.shortcuts),
+    title: i18nLazyString(UIStrings.showShortcuts),
     async loadActionDelegate() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.ActionDelegate.instance();
+        return new Settings.SettingsScreen.ActionDelegate();
     },
     bindings: [
         {
-            platform: "windows,linux" /* WindowsLinux */,
+            platform: "windows,linux" /* UI.ActionRegistration.Platforms.WindowsLinux */,
             shortcut: 'Ctrl+K Ctrl+S',
             keybindSets: [
-                "vsCode" /* VS_CODE */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
         {
-            platform: "mac" /* Mac */,
+            platform: "mac" /* UI.ActionRegistration.Platforms.Mac */,
             shortcut: 'Meta+K Meta+S',
             keybindSets: [
-                "vsCode" /* VS_CODE */,
+                "vsCode" /* UI.ActionRegistration.KeybindSet.VS_CODE */,
             ],
         },
     ],
 });
 UI.ViewManager.registerLocationResolver({
-    name: "settings-view" /* SETTINGS_VIEW */,
-    category: UI.ViewManager.ViewLocationCategoryValues.SETTINGS,
+    name: "settings-view" /* UI.ViewManager.ViewLocationValues.SETTINGS_VIEW */,
+    category: "SETTINGS" /* UI.ViewManager.ViewLocationCategory.SETTINGS */,
     async loadResolver() {
         const Settings = await loadSettingsModule();
         return Settings.SettingsScreen.SettingsScreen.instance();
@@ -183,21 +183,22 @@ Common.Revealer.registerRevealer({
     contextTypes() {
         return [
             Common.Settings.Setting,
+            Root.Runtime.Experiment,
         ];
     },
+    destination: undefined,
     async loadRevealer() {
         const Settings = await loadSettingsModule();
-        return Settings.SettingsScreen.Revealer.instance();
+        return new Settings.SettingsScreen.Revealer();
     },
-    destination: undefined,
 });
 UI.ContextMenu.registerItem({
-    location: UI.ContextMenu.ItemLocation.MAIN_MENU_FOOTER,
+    location: "mainMenu/footer" /* UI.ContextMenu.ItemLocation.MAIN_MENU_FOOTER */,
     actionId: 'settings.shortcuts',
     order: undefined,
 });
 UI.ContextMenu.registerItem({
-    location: UI.ContextMenu.ItemLocation.MAIN_MENU_HELP_DEFAULT,
+    location: "mainMenuHelp/default" /* UI.ContextMenu.ItemLocation.MAIN_MENU_HELP_DEFAULT */,
     actionId: 'settings.documentation',
     order: undefined,
 });

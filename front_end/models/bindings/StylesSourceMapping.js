@@ -51,6 +51,9 @@ export class StylesSourceMapping {
             this.#cssModel.addEventListener(SDK.CSSModel.Events.StyleSheetChanged, this.styleSheetChanged, this),
         ];
     }
+    addSourceMap(sourceUrl, sourceMapUrl) {
+        this.#styleFiles.get(sourceUrl)?.addSourceMap(sourceUrl, sourceMapUrl);
+    }
     rawLocationToUILocation(rawLocation) {
         const header = rawLocation.header();
         if (!header || !this.acceptsHeader(header)) {
@@ -197,21 +200,21 @@ export class StyleFile {
             return;
         }
         const mirrorContentBound = this.mirrorContent.bind(this, header, true /* majorChange */);
-        this.#throttler.schedule(mirrorContentBound, false /* asSoonAsPossible */);
+        void this.#throttler.schedule(mirrorContentBound, false /* asSoonAsPossible */);
     }
     workingCopyCommitted() {
         if (this.#isAddingRevision) {
             return;
         }
         const mirrorContentBound = this.mirrorContent.bind(this, this.uiSourceCode, true /* majorChange */);
-        this.#throttler.schedule(mirrorContentBound, true /* asSoonAsPossible */);
+        void this.#throttler.schedule(mirrorContentBound, true /* asSoonAsPossible */);
     }
     workingCopyChanged() {
         if (this.#isAddingRevision) {
             return;
         }
         const mirrorContentBound = this.mirrorContent.bind(this, this.uiSourceCode, false /* majorChange */);
-        this.#throttler.schedule(mirrorContentBound, false /* asSoonAsPossible */);
+        void this.#throttler.schedule(mirrorContentBound, false /* asSoonAsPossible */);
     }
     async mirrorContent(fromProvider, majorChange) {
         if (this.#terminated) {
@@ -255,7 +258,7 @@ export class StyleFile {
             return;
         }
         this.#terminated = true;
-        this.#project.removeFile(this.uiSourceCode.url());
+        this.#project.removeUISourceCode(this.uiSourceCode.url());
         Common.EventTarget.removeEventListeners(this.#eventListeners);
     }
     contentURL() {
@@ -266,26 +269,31 @@ export class StyleFile {
         console.assert(this.headers.size > 0);
         return this.headers.values().next().value.originalContentProvider().contentType();
     }
-    contentEncoded() {
-        console.assert(this.headers.size > 0);
-        return this.headers.values().next().value.originalContentProvider().contentEncoded();
-    }
     requestContent() {
         console.assert(this.headers.size > 0);
         return this.headers.values().next().value.originalContentProvider().requestContent();
+    }
+    requestContentData() {
+        console.assert(this.headers.size > 0);
+        return this.headers.values().next().value.originalContentProvider().requestContentData();
     }
     searchInContent(query, caseSensitive, isRegex) {
         console.assert(this.headers.size > 0);
         return this.headers.values().next().value.originalContentProvider().searchInContent(query, caseSensitive, isRegex);
     }
-    // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     static updateTimeout = 200;
     getHeaders() {
         return this.headers;
     }
     getUiSourceCode() {
         return this.uiSourceCode;
+    }
+    addSourceMap(sourceUrl, sourceMapUrl) {
+        const sourceMapManager = this.#cssModel.sourceMapManager();
+        this.headers.forEach(header => {
+            sourceMapManager.detachSourceMap(header);
+            sourceMapManager.attachSourceMap(header, sourceUrl, sourceMapUrl);
+        });
     }
 }
 //# sourceMappingURL=StylesSourceMapping.js.map

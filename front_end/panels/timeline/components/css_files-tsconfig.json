@@ -4,6 +4,7 @@
         "outDir": "."
     },
     "files": [
-        "WebVitalsTooltip.css.js"
+        "breadcrumbsUI.css.js",
+        "interactionBreakdown.css.js"
     ]
 }

@@ -1,17 +1,17 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import { Capability } from './Target.js';
 import { SDKModel } from './SDKModel.js';
 export class WebAuthnModel extends SDKModel {
     #agent;
     constructor(target) {
         super(target);
         this.#agent = target.webAuthnAgent();
+        target.registerWebAuthnDispatcher(new WebAuthnDispatcher(this));
     }
     setVirtualAuthEnvEnabled(enable) {
         if (enable) {
-            return this.#agent.invoke_enable();
+            return this.#agent.invoke_enable({ enableUI: true });
         }
         return this.#agent.invoke_disable();
     }
@@ -32,6 +32,24 @@ export class WebAuthnModel extends SDKModel {
     async removeCredential(authenticatorId, credentialId) {
         await this.#agent.invoke_removeCredential({ authenticatorId, credentialId });
     }
+    credentialAdded(params) {
+        this.dispatchEventToListeners("CredentialAdded" /* Events.CredentialAdded */, params);
+    }
+    credentialAsserted(params) {
+        this.dispatchEventToListeners("CredentialAsserted" /* Events.CredentialAsserted */, params);
+    }
 }
-SDKModel.register(WebAuthnModel, { capabilities: Capability.WebAuthn, autostart: false });
+class WebAuthnDispatcher {
+    #model;
+    constructor(model) {
+        this.#model = model;
+    }
+    credentialAdded(params) {
+        this.#model.credentialAdded(params);
+    }
+    credentialAsserted(params) {
+        this.#model.credentialAsserted(params);
+    }
+}
+SDKModel.register(WebAuthnModel, { capabilities: 65536 /* Capability.WebAuthn */, autostart: false });
 //# sourceMappingURL=WebAuthnModel.js.map

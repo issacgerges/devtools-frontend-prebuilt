@@ -3,108 +3,111 @@
 // found in the LICENSE file.
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
+import * as Platform from '../../../../core/platform/platform.js';
 import * as SDK from '../../../../core/sdk/sdk.js';
 import * as IconButton from '../../../components/icon_button/icon_button.js';
+import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
+import fontEditorStyles from './fontEditor.css.js';
 import * as FontEditorUnitConverter from './FontEditorUnitConverter.js';
 import * as FontEditorUtils from './FontEditorUtils.js';
 const UIStrings = {
     /**
-    *@description Font editor label for font family selector
-    */
+     *@description Font editor label for font family selector
+     */
     fontFamily: 'Font Family',
     /**
-    *@description Section header for CSS property inputs
-    */
+     *@description Section header for CSS property inputs
+     */
     cssProperties: 'CSS Properties',
     /**
-    *@description Font size slider label for Font Editor
-    */
+     *@description Font size slider label for Font Editor
+     */
     fontSize: 'Font Size',
     /**
-    *@description Line height slider label for Font Editor
-    */
+     *@description Line height slider label for Font Editor
+     */
     lineHeight: 'Line Height',
     /**
-    *@description Font weight slider label for Font Editor
-    */
+     *@description Font weight slider label for Font Editor
+     */
     fontWeight: 'Font Weight',
     /**
-    *@description Label for letter-spacing labels
-    */
+     *@description Label for letter-spacing labels
+     */
     spacing: 'Spacing',
     /**
-    *@description Label for numbered fallback selectors
-    *@example {2} PH1
-    */
+     *@description Label for numbered fallback selectors
+     *@example {2} PH1
+     */
     fallbackS: 'Fallback {PH1}',
     /**
-    *@description Announcement for deleting an empty font family selector in the Font Editor
-    *@example {2} PH1
-    */
+     *@description Announcement for deleting an empty font family selector in the Font Editor
+     *@example {2} PH1
+     */
     thereIsNoValueToDeleteAtIndexS: 'There is no value to delete at index: {PH1}',
     /**
-    *@description Announcement when deleting a font selector in the Font Editor
-    *@example {2} PH1
-    */
+     *@description Announcement when deleting a font selector in the Font Editor
+     *@example {2} PH1
+     */
     fontSelectorDeletedAtIndexS: 'Font Selector deleted at index: {PH1}',
     /**
-    *@description Label for Font Editor button to delete font family/fallback selectors
-    *@example {Fallback 1} PH1
-    */
+     *@description Label for Font Editor button to delete font family/fallback selectors
+     *@example {Fallback 1} PH1
+     */
     deleteS: 'Delete {PH1}',
     /**
-    * @description Warning message for Font Editor invalid text input. The placeholder is the name of
-    * the CSS attribute that is incorrect.
-    * @example {font-size} PH1
-    */
+     * @description Warning message for Font Editor invalid text input. The placeholder is the name of
+     * the CSS attribute that is incorrect.
+     * @example {font-size} PH1
+     */
     PleaseEnterAValidValueForSText: '* Please enter a valid value for {PH1} text input',
     /**
-    *@description Error text in Font Editor
-    *@example {font-size} PH1
-    */
+     *@description Error text in Font Editor
+     *@example {font-size} PH1
+     */
     thisPropertyIsSetToContainUnits: 'This property is set to contain units but does not have a defined corresponding unitsArray: {PH1}',
     /**
-    *@description Label for slider input in the Font Editor.
-    *@example {font-size} PH1
-    */
+     *@description Label for slider input in the Font Editor.
+     *@example {font-size} PH1
+     */
     sSliderInput: '{PH1} Slider Input',
     /**
-    *@description Accessible label for a text input for a property in the Font Editor.
-    *@example {font-size} PH1
-    */
+     *@description Accessible label for a text input for a property in the Font Editor.
+     *@example {font-size} PH1
+     */
     sTextInput: '{PH1} Text Input',
     /**
-    *@description Font Editor units text box label
-    */
+     *@description Font Editor units text box label
+     */
     units: 'Units',
     /**
-    * @description Accessible name for Font Editor unit input. The placeholder is the name of the font
-    * property that this UI input controls. e.g. font-size, line-height, line-weight.
-    * @example {font-size} PH1
-    */
+     * @description Accessible name for Font Editor unit input. The placeholder is the name of the font
+     * property that this UI input controls. e.g. font-size, line-height, line-weight.
+     * @example {font-size} PH1
+     */
     sUnitInput: '{PH1} Unit Input',
     /**
-    *@description Text used in the Font Editor for the key values selector
-    *@example {font-size} PH1
-    */
+     *@description Text used in the Font Editor for the key values selector
+     *@example {font-size} PH1
+     */
     sKeyValueSelector: '{PH1} Key Value Selector',
     /**
-    * @description Label for Font Editor toggle input type button. The placeholder is the name of the
-    * font property that this UI input controls. e.g. font-size, line-height, line-weight. Tooltip for
-    * a button next to the text input which allows the user to change the input type. When they click
-    * this button, the UI changes to allow the user to choose from a list of pre-selected font
-    * categories.
-    * @example {font-size} PH1
-    */
+     * @description Label for Font Editor toggle input type button. The placeholder is the name of the
+     * font property that this UI input controls. e.g. font-size, line-height, line-weight. Tooltip for
+     * a button next to the text input which allows the user to change the input type. When they click
+     * this button, the UI changes to allow the user to choose from a list of pre-selected font
+     * categories.
+     * @example {font-size} PH1
+     */
     sToggleInputType: '{PH1} toggle input type',
     /**
-    *@description Label for Font Editor alert in CSS Properties section when toggling inputs
-    */
+     *@description Label for Font Editor alert in CSS Properties section when toggling inputs
+     */
     selectorInputMode: 'Selector Input Mode',
     /**
-    *@description Label for Font Editor alert in CSS Properties section when toggling inputs
-    */
+     *@description Label for Font Editor alert in CSS Properties section when toggling inputs
+     */
     sliderInputMode: 'Slider Input Mode',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/inline_editor/FontEditor.ts', UIStrings);
@@ -117,10 +120,10 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
     fontsList;
     constructor(propertyMap) {
         super(true);
-        this.registerRequiredCSS('ui/legacy/components/inline_editor/fontEditor.css');
         this.selectedNode = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
         this.propertyMap = propertyMap;
         this.contentElement.tabIndex = 0;
+        this.contentElement.setAttribute('jslog', `${VisualLogging.dialog('font-editor').parent('mapped').track({ keydown: 'Enter|Escape' })}`);
         this.setDefaultFocusedElement(this.contentElement);
         // Font Selector Section
         this.fontSelectorSection = this.contentElement.createChild('div', 'font-selector-section');
@@ -128,7 +131,7 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
         this.fontSelectors = [];
         this.fontsList = null;
         const propertyValue = this.propertyMap.get('font-family');
-        this.createFontSelectorSection(propertyValue);
+        void this.createFontSelectorSection(propertyValue);
         //  CSS Font Property Section
         const cssPropertySection = this.contentElement.createChild('div', 'font-section');
         cssPropertySection.createChild('h2', 'font-section-header').textContent = i18nString(UIStrings.cssProperties);
@@ -146,6 +149,9 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
         new FontPropertyInputs('letter-spacing', i18nString(UIStrings.spacing), cssPropertySection, letterSpacingPropertyInfo, FontEditorUtils.LetterSpacingStaticParams, this.updatePropertyValue.bind(this), this.resizePopout.bind(this), 
         /** hasUnits= */ true);
     }
+    wasShown() {
+        this.registerCSSFiles([fontEditorStyles]);
+    }
     async createFontSelectorSection(propertyValue) {
         if (propertyValue) {
             // FIXME(crbug.com/1148434): propertyValue will not be split correctly for font family names that contain commas.
@@ -155,12 +161,12 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
             if (!FontEditorUtils.GlobalValues.includes(splitValue[0])) {
                 // We add one to the splitValue length so that we have an additional empty fallback selector
                 for (let i = 1; i < splitValue.length + 1; i++) {
-                    this.createFontSelector(splitValue[i]);
+                    void this.createFontSelector(splitValue[i]);
                 }
             }
         }
         else {
-            this.createFontSelector('', true);
+            void this.createFontSelector('', true);
         }
         this.resizePopout();
     }
@@ -217,11 +223,11 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
             const globalValuesMap = new Map([['Global Values', FontEditorUtils.GlobalValues]]);
             const primaryFontList = [...this.fontsList];
             primaryFontList.push(globalValuesMap);
-            this.createSelector(selectorField, label, primaryFontList, value.trim());
+            this.createSelector(selectorField, label, primaryFontList, value.trim(), 'primary-font-family');
         }
         else {
             label = i18nString(UIStrings.fallbackS, { PH1: this.fontSelectors.length });
-            this.createSelector(selectorField, label, this.fontsList, value.trim());
+            this.createSelector(selectorField, label, this.fontsList, value.trim(), 'fallback-font-family');
         }
     }
     deleteFontSelector(index, isGlobalValue) {
@@ -272,7 +278,7 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
                 label = i18nString(UIStrings.fallbackS, { PH1: i });
             }
             fontSelectorObject.label.textContent = label;
-            UI.ARIAUtils.setAccessibleName(fontSelectorObject.input, label);
+            UI.ARIAUtils.setLabel(fontSelectorObject.input, label);
             fontSelectorObject.deleteButton.setTitle(i18nString(UIStrings.deleteS, { PH1: label }));
             fontSelectorObject.index = i;
         }
@@ -291,10 +297,11 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
         }
         return { value: null, units: null };
     }
-    createSelector(field, label, options, currentValue) {
+    createSelector(field, label, options, currentValue, jslogContext) {
         const index = this.fontSelectors.length;
         const selectInput = UI.UIUtils.createSelect(label, options);
         selectInput.value = currentValue;
+        selectInput.setAttribute('jslog', `${VisualLogging.dropDown(jslogContext).track({ click: true, change: true })}`);
         const selectLabel = UI.UIUtils.createLabel(label, 'shadow-editor-label', selectInput);
         selectInput.addEventListener('input', this.onFontSelectorChanged.bind(this), false);
         // We want to prevent the Enter key from propagating to the SwatchPopoverHelper which will close the editor.
@@ -306,14 +313,14 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
         field.appendChild(selectLabel);
         field.appendChild(selectInput);
         const deleteToolbar = new UI.Toolbar.Toolbar('', field);
-        const deleteButton = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.deleteS, { PH1: label }), 'largeicon-trash-bin');
+        const deleteButton = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.deleteS, { PH1: label }), 'bin', undefined, 'delete');
         deleteToolbar.appendToolbarItem(deleteButton);
         const fontSelectorObject = { label: selectLabel, input: selectInput, deleteButton, index };
-        deleteButton.addEventListener(UI.Toolbar.ToolbarButton.Events.Click, () => {
+        deleteButton.addEventListener("Click" /* UI.Toolbar.ToolbarButton.Events.Click */, () => {
             this.deleteFontSelector(fontSelectorObject.index);
         });
         deleteButton.element.addEventListener('keydown', (event) => {
-            if (isEnterOrSpaceKey(event)) {
+            if (Platform.KeyboardUtilities.isEnterOrSpaceKey(event)) {
                 this.deleteFontSelector(fontSelectorObject.index);
                 event.consume();
             }
@@ -343,25 +350,18 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin(UI.Widget.VBox) 
         // selector's value is not a global value and if the list of selectors has not exceeded 10.
         if (this.fontSelectors[this.fontSelectors.length - 1].input.value !== '' && !isGlobalValue &&
             this.fontSelectors.length < 10) {
-            this.createFontSelector(/** value= */ '');
+            void this.createFontSelector(/** value= */ '');
             this.resizePopout();
         }
         this.updatePropertyValue('font-family', value);
     }
     updatePropertyValue(propertyName, value) {
-        this.dispatchEventToListeners(Events.FontChanged, { propertyName, value });
+        this.dispatchEventToListeners("FontChanged" /* Events.FontChanged */, { propertyName, value });
     }
     resizePopout() {
-        this.dispatchEventToListeners(Events.FontEditorResized);
+        this.dispatchEventToListeners("FontEditorResized" /* Events.FontEditorResized */);
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var Events;
-(function (Events) {
-    Events["FontChanged"] = "FontChanged";
-    Events["FontEditorResized"] = "FontEditorResized";
-})(Events || (Events = {}));
 class FontPropertyInputs {
     showSliderMode;
     errorText;
@@ -409,12 +409,12 @@ class FontPropertyInputs {
         this.selectedNode = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
         const propertyLabel = UI.UIUtils.createLabel(label, 'shadow-editor-label');
         propertyField.append(propertyLabel);
-        this.sliderInput = this.createSliderInput(propertyField, label);
-        this.textBoxInput = this.createTextBoxInput(propertyField);
+        this.sliderInput = this.createSliderInput(propertyField, propertyName);
+        this.textBoxInput = this.createTextBoxInput(propertyField, propertyName);
         UI.ARIAUtils.bindLabelToControl(propertyLabel, this.textBoxInput);
-        this.unitInput = this.createUnitInput(propertyField);
-        this.selectorInput = this.createSelectorInput(propertyField);
-        this.createTypeToggle(propertyField);
+        this.unitInput = this.createUnitInput(propertyField, `${propertyName}-unit`);
+        this.selectorInput = this.createSelectorInput(propertyField, propertyName);
+        this.createTypeToggle(propertyField, `${propertyName}-value-type`);
         this.checkSelectorValueAndToggle();
         this.applyNextInput = false;
     }
@@ -474,7 +474,7 @@ class FontPropertyInputs {
         }
         return { min, max, step };
     }
-    createSliderInput(field, _label) {
+    createSliderInput(field, jslogContext) {
         const min = this.initialRange.min;
         const max = this.initialRange.max;
         const step = this.initialRange.step;
@@ -505,11 +505,12 @@ class FontPropertyInputs {
             }
         });
         field.appendChild(slider);
-        UI.ARIAUtils.setAccessibleName(slider.sliderElement, i18nString(UIStrings.sSliderInput, { PH1: this.propertyName }));
+        UI.ARIAUtils.setLabel(slider.sliderElement, i18nString(UIStrings.sSliderInput, { PH1: this.propertyName }));
+        slider.sliderElement.setAttribute('jslog', `${VisualLogging.slider(jslogContext).track({ change: true })}`);
         return slider;
     }
-    createTextBoxInput(field) {
-        const textBoxInput = UI.UIUtils.createInput('shadow-editor-text-input', 'number');
+    createTextBoxInput(field, jslogContext) {
+        const textBoxInput = UI.UIUtils.createInput('shadow-editor-text-input', 'number', jslogContext);
         textBoxInput.step = this.initialRange.step.toString();
         textBoxInput.classList.add('font-editor-text-input');
         if (this.propertyInfo.value !== null) {
@@ -521,10 +522,10 @@ class FontPropertyInputs {
         textBoxInput.step = 'any';
         textBoxInput.addEventListener('input', this.onTextBoxInput.bind(this), false);
         field.appendChild(textBoxInput);
-        UI.ARIAUtils.setAccessibleName(textBoxInput, i18nString(UIStrings.sTextInput, { PH1: this.propertyName }));
+        UI.ARIAUtils.setLabel(textBoxInput, i18nString(UIStrings.sTextInput, { PH1: this.propertyName }));
         return textBoxInput;
     }
-    createUnitInput(field) {
+    createUnitInput(field, jslogContext) {
         let unitInput;
         if (this.hasUnits && this.staticParams.units) {
             const currentValue = this.propertyInfo.units;
@@ -544,6 +545,7 @@ class FontPropertyInputs {
             unitInput.classList.add('font-editor-select');
             unitInput.disabled = true;
         }
+        unitInput.setAttribute('jslog', `${VisualLogging.dropDown(jslogContext).track({ click: true, change: true })}`);
         // We want to prevent the Enter key from propagating to the SwatchPopoverHelper which will close the editor.
         unitInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
@@ -551,10 +553,10 @@ class FontPropertyInputs {
             }
         }, false);
         field.appendChild(unitInput);
-        UI.ARIAUtils.setAccessibleName(unitInput, i18nString(UIStrings.sUnitInput, { PH1: this.propertyName }));
+        UI.ARIAUtils.setLabel(unitInput, i18nString(UIStrings.sUnitInput, { PH1: this.propertyName }));
         return unitInput;
     }
-    createSelectorInput(field) {
+    createSelectorInput(field, jslogContext) {
         const selectInput = UI.UIUtils.createSelect(i18nString(UIStrings.sKeyValueSelector, { PH1: this.propertyName }), this.staticParams.keyValues);
         selectInput.classList.add('font-selector-input');
         if (this.propertyInfo.value) {
@@ -569,6 +571,7 @@ class FontPropertyInputs {
         }, false);
         field.appendChild(selectInput);
         selectInput.hidden = true;
+        selectInput.setAttribute('jslog', `${VisualLogging.dropDown(jslogContext).track({ click: true, change: true })}`);
         return selectInput;
     }
     onSelectorInput(event) {
@@ -635,15 +638,16 @@ class FontPropertyInputs {
             unitInput.focus();
         }
     }
-    createTypeToggle(field) {
+    createTypeToggle(field, jslogContext) {
         const displaySwitcher = field.createChild('div', 'spectrum-switcher');
         const icon = new IconButton.Icon.Icon();
-        icon.data = { iconName: 'switcherIcon', color: 'var(--color-text-primary)', width: '16px', height: '16px' };
+        icon.data = { iconName: 'fold-more', color: 'var(--icon-default)', width: '16px', height: '16px' };
         displaySwitcher.appendChild(icon);
         UI.UIUtils.setTitle(displaySwitcher, i18nString(UIStrings.sToggleInputType, { PH1: this.propertyName }));
         displaySwitcher.tabIndex = 0;
         self.onInvokeElement(displaySwitcher, this.toggleInputType.bind(this));
         UI.ARIAUtils.markAsButton(displaySwitcher);
+        displaySwitcher.setAttribute('jslog', `${VisualLogging.toggle(jslogContext).track({ click: true })}`);
     }
     toggleInputType(event) {
         if (event && event.key === 'Enter') {

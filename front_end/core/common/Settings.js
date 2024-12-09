@@ -27,11 +27,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import * as Platform from '../platform/platform.js';
 import * as Root from '../root/root.js';
-import { Format } from './Color.js';
 import { Console } from './Console.js';
 import { ObjectWrapper } from './Object.js';
-import { getLocalizedSettingsCategory, getRegisteredSettings, maybeRemoveSettingExtension, registerSettingExtension, registerSettingsForTest, resetSettings, SettingCategory, SettingType } from './SettingRegistration.js';
+import { getLocalizedSettingsCategory, getRegisteredSettings, maybeRemoveSettingExtension, registerSettingExtension, registerSettingsForTest, resetSettings, } from './SettingRegistration.js';
 let settingsInstance;
 export class Settings {
     syncedStorage;
@@ -55,16 +55,11 @@ export class Settings {
         this.moduleSettings = new Map();
         for (const registration of getRegisteredSettings()) {
             const { settingName, defaultValue, storageType } = registration;
-            const isRegex = registration.settingType === SettingType.REGEX;
+            const isRegex = registration.settingType === "regex" /* SettingType.REGEX */;
             const setting = isRegex && typeof defaultValue === 'string' ?
                 this.createRegExpSetting(settingName, defaultValue, undefined, storageType) :
                 this.createSetting(settingName, defaultValue, storageType);
-            if (Root.Runtime.Runtime.platform() === 'mac' && registration.titleMac) {
-                setting.setTitleFunction(registration.titleMac);
-            }
-            else {
-                setting.setTitleFunction(registration.title);
-            }
+            setting.setTitleFunction(registration.title);
             if (registration.userActionCondition) {
                 setting.setRequiresUserAction(Boolean(Root.Runtime.Runtime.queryParam(registration.userActionCondition)));
             }
@@ -106,6 +101,18 @@ export class Settings {
         this.settingNameSet.add(settingName);
         this.moduleSettings.set(setting.name, setting);
     }
+    static normalizeSettingName(name) {
+        if ([
+            VersionController.GLOBAL_VERSION_SETTING_NAME,
+            VersionController.SYNCED_VERSION_SETTING_NAME,
+            VersionController.LOCAL_VERSION_SETTING_NAME,
+            'currentDockState',
+            'isUnderTest',
+        ].includes(name)) {
+            return name;
+        }
+        return Platform.StringUtilities.toKebabCase(name);
+    }
     // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     moduleSetting(settingName) {
@@ -122,6 +129,9 @@ export class Settings {
         }
         return setting;
     }
+    /**
+     * Get setting via key, and create a new setting if the requested setting does not exist.
+     */
     createSetting(key, defaultValue, storageType) {
         const storage = this.storageFromType(storageType);
         let setting = this.#registry.get(key);
@@ -132,7 +142,7 @@ export class Settings {
         return setting;
     }
     createLocalSetting(key, defaultValue) {
-        return this.createSetting(key, defaultValue, SettingStorageType.Local);
+        return this.createSetting(key, defaultValue, "Local" /* SettingStorageType.Local */);
     }
     createRegExpSetting(key, defaultValue, regexFlags, storageType) {
         if (!this.#registry.get(key)) {
@@ -142,19 +152,19 @@ export class Settings {
     }
     clearAll() {
         this.globalStorage.removeAll();
+        this.syncedStorage.removeAll();
         this.localStorage.removeAll();
-        const versionSetting = Settings.instance().createSetting(VersionController.currentVersionName, 0);
-        versionSetting.set(VersionController.currentVersion);
+        new VersionController().resetToCurrent();
     }
     storageFromType(storageType) {
         switch (storageType) {
-            case SettingStorageType.Local:
+            case "Local" /* SettingStorageType.Local */:
                 return this.localStorage;
-            case SettingStorageType.Session:
+            case "Session" /* SettingStorageType.Session */:
                 return this.#sessionStorage;
-            case SettingStorageType.Global:
+            case "Global" /* SettingStorageType.Global */:
                 return this.globalStorage;
-            case SettingStorageType.Synced:
+            case "Synced" /* SettingStorageType.Synced */:
                 return this.syncedStorage;
         }
         return this.globalStorage;
@@ -166,6 +176,7 @@ export class Settings {
 export const NOOP_STORAGE = {
     register: () => { },
     set: () => { },
+    get: () => Promise.resolve(''),
     remove: () => { },
     clear: () => { },
 };
@@ -195,6 +206,17 @@ export class SettingsStorage {
         name = this.storagePrefix + name;
         return this.object[name];
     }
+    async forceGet(originalName) {
+        const name = this.storagePrefix + originalName;
+        const value = await this.backingStore.get(name);
+        if (value && value !== this.object[name]) {
+            this.set(originalName, value);
+        }
+        else if (!value) {
+            this.remove(originalName);
+        }
+        return value;
+    }
     remove(name) {
         name = this.storagePrefix + name;
         delete this.object[name];
@@ -203,6 +225,9 @@ export class SettingsStorage {
     removeAll() {
         this.object = {};
         this.backingStore.clear();
+    }
+    keys() {
+        return Object.keys(this.object);
     }
     dumpSizes() {
         Console.instance().log('Ten largest settings: ');
@@ -227,6 +252,21 @@ function removeSetting(setting) {
     settings.moduleSettings.delete(name);
     setting.storage.remove(name);
 }
+export class Deprecation {
+    disabled;
+    warning;
+    experiment;
+    constructor({ deprecationNotice }) {
+        if (!deprecationNotice) {
+            throw new Error('Cannot create deprecation info for a non-deprecated setting');
+        }
+        this.disabled = deprecationNotice.disabled;
+        this.warning = deprecationNotice.warning();
+        this.experiment = deprecationNotice.experiment ?
+            Root.Runtime.experiments.allConfigurableExperiments().find(e => e.name === deprecationNotice.experiment) :
+            undefined;
+    }
+}
 export class Setting {
     name;
     defaultValue;
@@ -240,12 +280,14 @@ export class Setting {
     // TODO(crbug.com/1172300) Type cannot be inferred without changes to consumers. See above.
     #serializer = JSON;
     #hadUserAction;
+    #disabled;
+    #deprecation = null;
     constructor(name, defaultValue, eventSupport, storage) {
         this.name = name;
         this.defaultValue = defaultValue;
         this.eventSupport = eventSupport;
         this.storage = storage;
-        storage.register(name);
+        storage.register(this.name);
     }
     setSerializer(serializer) {
         this.#serializer = serializer;
@@ -276,6 +318,30 @@ export class Setting {
     setRequiresUserAction(requiresUserAction) {
         this.#requiresUserAction = requiresUserAction;
     }
+    disabled() {
+        if (this.#registration?.disabledCondition) {
+            const { disabled } = this.#registration.disabledCondition();
+            // If registration does not disable it, pass through to #disabled
+            // attribute check.
+            if (disabled) {
+                return true;
+            }
+        }
+        return this.#disabled || false;
+    }
+    disabledReason() {
+        if (this.#registration?.disabledCondition) {
+            const result = this.#registration.disabledCondition();
+            if (result.disabled) {
+                return result.reason;
+            }
+        }
+        return undefined;
+    }
+    setDisabled(disabled) {
+        this.#disabled = disabled;
+        this.eventSupport.dispatchEventToListeners(this.name);
+    }
     get() {
         if (this.#requiresUserAction && !this.#hadUserAction) {
             return this.defaultValue;
@@ -291,6 +357,24 @@ export class Setting {
             catch (e) {
                 this.storage.remove(this.name);
             }
+        }
+        return this.#value;
+    }
+    async forceGet() {
+        const name = this.name;
+        const oldValue = this.storage.get(name);
+        const value = await this.storage.forceGet(name);
+        this.#value = this.defaultValue;
+        if (value) {
+            try {
+                this.#value = this.#serializer.parse(value);
+            }
+            catch (e) {
+                this.storage.remove(this.name);
+            }
+        }
+        if (oldValue !== value) {
+            this.eventSupport.dispatchEventToListeners(this.name, this.#value);
         }
         return this.#value;
     }
@@ -313,6 +397,16 @@ export class Setting {
     }
     setRegistration(registration) {
         this.#registration = registration;
+        const { deprecationNotice } = registration;
+        if (deprecationNotice?.disabled) {
+            const experiment = deprecationNotice.experiment ?
+                Root.Runtime.experiments.allConfigurableExperiments().find(e => e.name === deprecationNotice.experiment) :
+                undefined;
+            if ((!experiment || experiment.isEnabled())) {
+                this.set(this.defaultValue);
+                this.setDisabled(true);
+            }
+        }
     }
     type() {
         if (this.#registration) {
@@ -358,6 +452,15 @@ export class Setting {
             return this.#registration.order || null;
         }
         return null;
+    }
+    get deprecation() {
+        if (!this.#registration || !this.#registration.deprecationNotice) {
+            return null;
+        }
+        if (!this.#deprecation) {
+            this.#deprecation = new Deprecation(this.#registration);
+        }
+        return this.#deprecation;
     }
     printSettingsSavingError(message, name, value) {
         const errorMessage = 'Error saving setting with name: ' + this.name + ', value length: ' + value.length + '. Error: ' + message;
@@ -413,28 +516,47 @@ export class RegExpSetting extends Setting {
     }
 }
 export class VersionController {
-    static get currentVersionName() {
-        return 'inspectorVersion';
+    static GLOBAL_VERSION_SETTING_NAME = 'inspectorVersion';
+    static SYNCED_VERSION_SETTING_NAME = 'syncedInspectorVersion';
+    static LOCAL_VERSION_SETTING_NAME = 'localInspectorVersion';
+    static CURRENT_VERSION = 37;
+    #globalVersionSetting;
+    #syncedVersionSetting;
+    #localVersionSetting;
+    constructor() {
+        // If no version setting is found, we initialize with the current version and don't do anything.
+        this.#globalVersionSetting = Settings.instance().createSetting(VersionController.GLOBAL_VERSION_SETTING_NAME, VersionController.CURRENT_VERSION, "Global" /* SettingStorageType.Global */);
+        this.#syncedVersionSetting = Settings.instance().createSetting(VersionController.SYNCED_VERSION_SETTING_NAME, VersionController.CURRENT_VERSION, "Synced" /* SettingStorageType.Synced */);
+        this.#localVersionSetting = Settings.instance().createSetting(VersionController.LOCAL_VERSION_SETTING_NAME, VersionController.CURRENT_VERSION, "Local" /* SettingStorageType.Local */);
     }
-    static get currentVersion() {
-        return 31;
+    /**
+     * Force re-sets all version number settings to the current version without
+     * running any migrations.
+     */
+    resetToCurrent() {
+        this.#globalVersionSetting.set(VersionController.CURRENT_VERSION);
+        this.#syncedVersionSetting.set(VersionController.CURRENT_VERSION);
+        this.#localVersionSetting.set(VersionController.CURRENT_VERSION);
     }
+    /**
+     * Runs the appropriate migrations and updates the version settings accordingly.
+     *
+     * To determine what migrations to run we take the minimum of all version number settings.
+     *
+     * IMPORTANT: All migrations must be idempotent since they might be applied multiple times.
+     */
     updateVersion() {
-        const localStorageVersion = window.localStorage ? window.localStorage[VersionController.currentVersionName] : 0;
-        const versionSetting = Settings.instance().createSetting(VersionController.currentVersionName, 0);
-        const currentVersion = VersionController.currentVersion;
-        const oldVersion = versionSetting.get() || parseInt(localStorageVersion || '0', 10);
-        if (oldVersion === 0) {
-            // First run, no need to do anything.
-            versionSetting.set(currentVersion);
-            return;
-        }
-        const methodsToRun = this.methodsToRunToUpdateVersion(oldVersion, currentVersion);
+        const currentVersion = VersionController.CURRENT_VERSION;
+        const minimumVersion = Math.min(this.#globalVersionSetting.get(), this.#syncedVersionSetting.get(), this.#localVersionSetting.get());
+        const methodsToRun = this.methodsToRunToUpdateVersion(minimumVersion, currentVersion);
+        console.assert(
+        // @ts-ignore
+        this[`updateVersionFrom${currentVersion}To${currentVersion + 1}`] === undefined, 'Unexpected migration method found. Increment CURRENT_VERSION or remove the method.');
         for (const method of methodsToRun) {
             // @ts-ignore Special version method matching
             this[method].call(this);
         }
-        versionSetting.set(currentVersion);
+        this.resetToCurrent();
     }
     methodsToRunToUpdateVersion(oldVersion, currentVersion) {
         const result = [];
@@ -855,6 +977,111 @@ export class VersionController {
         const recordingsSetting = Settings.instance().createSetting('recorder_recordings', []);
         removeSetting(recordingsSetting);
     }
+    updateVersionFrom31To32() {
+        // Introduce the new 'resourceTypeName' property on stored breakpoints. Prior to
+        // this change we synchronized the breakpoint only by URL, but since we don't
+        // know on which resource type the given breakpoint was set, we just assume
+        // 'script' here to keep things simple.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const breakpointsSetting = Settings.instance().createLocalSetting('breakpoints', []);
+        const breakpoints = breakpointsSetting.get();
+        for (const breakpoint of breakpoints) {
+            breakpoint['resourceTypeName'] = 'script';
+        }
+        breakpointsSetting.set(breakpoints);
+    }
+    updateVersionFrom32To33() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const previouslyViewedFilesSetting = Settings.instance().createLocalSetting('previouslyViewedFiles', []);
+        let previouslyViewedFiles = previouslyViewedFilesSetting.get();
+        // Discard old 'previouslyViewedFiles' items that don't have a 'url' property.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        previouslyViewedFiles = previouslyViewedFiles.filter((previouslyViewedFile) => 'url' in previouslyViewedFile);
+        // Introduce the new 'resourceTypeName' property on previously viewed files.
+        // Prior to this change we only keyed them based on the URL, but since we
+        // don't know which resource type the given file had, we just assume 'script'
+        // here to keep things simple.
+        for (const previouslyViewedFile of previouslyViewedFiles) {
+            previouslyViewedFile['resourceTypeName'] = 'script';
+        }
+        previouslyViewedFilesSetting.set(previouslyViewedFiles);
+    }
+    updateVersionFrom33To34() {
+        // Introduces the 'isLogpoint' property on stored breakpoints. This information was
+        // previously encoded in the 'condition' itself. This migration leaves the condition
+        // alone but ensures that 'isLogpoint' is accurate for already stored breakpoints.
+        // This enables us to use the 'isLogpoint' property in code.
+        // A separate migration will remove the special encoding from the condition itself
+        // once all refactorings are done.
+        // The prefix/suffix are hardcoded here, since these constants will be removed in
+        // the future.
+        const logpointPrefix = '/** DEVTOOLS_LOGPOINT */ console.log(';
+        const logpointSuffix = ')';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const breakpointsSetting = Settings.instance().createLocalSetting('breakpoints', []);
+        const breakpoints = breakpointsSetting.get();
+        for (const breakpoint of breakpoints) {
+            const isLogpoint = breakpoint.condition.startsWith(logpointPrefix) && breakpoint.condition.endsWith(logpointSuffix);
+            breakpoint['isLogpoint'] = isLogpoint;
+        }
+        breakpointsSetting.set(breakpoints);
+    }
+    updateVersionFrom34To35() {
+        // Uses the 'isLogpoint' property on stored breakpoints to remove the prefix/suffix
+        // from logpoints. This way, we store the entered log point condition as the user
+        // entered it.
+        // The prefix/suffix are hardcoded here, since these constants will be removed in
+        // the future.
+        const logpointPrefix = '/** DEVTOOLS_LOGPOINT */ console.log(';
+        const logpointSuffix = ')';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const breakpointsSetting = Settings.instance().createLocalSetting('breakpoints', []);
+        const breakpoints = breakpointsSetting.get();
+        for (const breakpoint of breakpoints) {
+            const { condition, isLogpoint } = breakpoint;
+            if (isLogpoint) {
+                breakpoint.condition = condition.slice(logpointPrefix.length, condition.length - logpointSuffix.length);
+            }
+        }
+        breakpointsSetting.set(breakpoints);
+    }
+    updateVersionFrom35To36() {
+        // We have changed the default from 'false' to 'true' and this updates the existing setting just for once.
+        Settings.instance().createSetting('showThirdPartyIssues', true).set(true);
+    }
+    updateVersionFrom36To37() {
+        const updateStorage = (storage) => {
+            for (const key of storage.keys()) {
+                const normalizedKey = Settings.normalizeSettingName(key);
+                if (normalizedKey !== key) {
+                    const value = storage.get(key);
+                    removeSetting({ name: key, storage });
+                    storage.set(normalizedKey, value);
+                }
+            }
+        };
+        updateStorage(Settings.instance().globalStorage);
+        updateStorage(Settings.instance().syncedStorage);
+        updateStorage(Settings.instance().localStorage);
+        for (const key of Settings.instance().globalStorage.keys()) {
+            if ((key.startsWith('data-grid-') && key.endsWith('-column-weights')) || key.endsWith('-tab-order') ||
+                key === 'views-location-override' || key === 'closeable-tabs') {
+                const setting = Settings.instance().createSetting(key, {});
+                setting.set(Platform.StringUtilities.toKebabCaseKeys(setting.get()));
+            }
+            if (key.endsWith('-selected-tab')) {
+                const setting = Settings.instance().createSetting(key, '');
+                setting.set(Platform.StringUtilities.toKebabCase(setting.get()));
+            }
+        }
+    }
+    /*
+     * Any new migration should be added before this comment.
+     *
+     * IMPORTANT: Migrations must be idempotent, since they may be applied
+     * multiple times! E.g. when renaming a setting one has to check that the
+     * a setting with the new name does not yet exist.
+     * ----------------------------------------------------------------------- */
     migrateSettingsFromLocalStorage() {
         // This step migrates all the settings except for the ones below into the browser profile.
         const localSettings = new Set([
@@ -891,48 +1118,11 @@ export class VersionController {
         }
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-export var SettingStorageType;
-(function (SettingStorageType) {
-    /**
-     * Synced storage persists settings with the active Chrome profile but also
-     * syncs the settings across devices via Chrome Sync.
-     */
-    SettingStorageType["Synced"] = "Synced";
-    /** Global storage persists settings with the active Chrome profile */
-    SettingStorageType["Global"] = "Global";
-    /** Uses Window.localStorage */
-    SettingStorageType["Local"] = "Local";
-    /** Session storage dies when DevTools window closes */
-    SettingStorageType["Session"] = "Session";
-})(SettingStorageType || (SettingStorageType = {}));
 export function moduleSetting(settingName) {
     return Settings.instance().moduleSetting(settingName);
 }
 export function settingForTest(settingName) {
     return Settings.instance().settingForTest(settingName);
 }
-export function detectColorFormat(color) {
-    const cf = Format;
-    let format;
-    const formatSetting = Settings.instance().moduleSetting('colorFormat').get();
-    if (formatSetting === cf.Original) {
-        format = cf.Original;
-    }
-    else if (formatSetting === cf.RGB) {
-        format = cf.RGB;
-    }
-    else if (formatSetting === cf.HSL) {
-        format = cf.HSL;
-    }
-    else if (formatSetting === cf.HEX) {
-        format = color.detectHEXFormat();
-    }
-    else {
-        format = cf.RGB;
-    }
-    return format;
-}
-export { getLocalizedSettingsCategory, getRegisteredSettings, maybeRemoveSettingExtension, registerSettingExtension, SettingCategory, SettingType, registerSettingsForTest, resetSettings, };
+export { getLocalizedSettingsCategory, getRegisteredSettings, maybeRemoveSettingExtension, registerSettingExtension, registerSettingsForTest, resetSettings, };
 //# sourceMappingURL=Settings.js.map

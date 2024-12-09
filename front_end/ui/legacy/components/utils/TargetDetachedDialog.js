@@ -6,8 +6,8 @@ import * as SDK from '../../../../core/sdk/sdk.js';
 import * as UI from '../../legacy.js';
 const UIStrings = {
     /**
-    *@description Text on the remote debugging window to indicate the connection is lost
-    */
+     *@description Text on the remote debugging window to indicate the connection is lost
+     */
     websocketDisconnected: 'WebSocket disconnected',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/utils/TargetDetachedDialog.ts', UIStrings);
@@ -17,7 +17,7 @@ export class TargetDetachedDialog extends SDK.SDKModel.SDKModel {
     constructor(target) {
         super(target);
         target.registerInspectorDispatcher(this);
-        target.inspectorAgent().invoke_enable();
+        void target.inspectorAgent().invoke_enable();
         // Hide all dialogs if a new top-level target is created.
         if (target.parentTarget()?.type() === SDK.Target.Type.Browser && TargetDetachedDialog.hideCrashedDialog) {
             TargetDetachedDialog.hideCrashedDialog.call(null);
@@ -42,8 +42,8 @@ export class TargetDetachedDialog extends SDK.SDKModel.SDKModel {
         if (parentTarget && parentTarget.type() !== SDK.Target.Type.Browser) {
             return;
         }
-        const dialog = new UI.Dialog.Dialog();
-        dialog.setSizeBehavior("MeasureContent" /* MeasureContent */);
+        const dialog = new UI.Dialog.Dialog('target-crashed');
+        dialog.setSizeBehavior("MeasureContent" /* UI.GlassPane.SizeBehavior.MeasureContent */);
         dialog.addCloseButton();
         dialog.setDimmed(true);
         TargetDetachedDialog.hideCrashedDialog = dialog.hide.bind(dialog);
@@ -61,12 +61,12 @@ export class TargetDetachedDialog extends SDK.SDKModel.SDKModel {
     /** ;
      */
     targetReloadedAfterCrash() {
-        this.target().runtimeAgent().invoke_runIfWaitingForDebugger();
+        void this.target().runtimeAgent().invoke_runIfWaitingForDebugger();
         if (TargetDetachedDialog.hideCrashedDialog) {
             TargetDetachedDialog.hideCrashedDialog.call(null);
             TargetDetachedDialog.hideCrashedDialog = null;
         }
     }
 }
-SDK.SDKModel.SDKModel.register(TargetDetachedDialog, { capabilities: SDK.Target.Capability.Inspector, autostart: true });
+SDK.SDKModel.SDKModel.register(TargetDetachedDialog, { capabilities: 2048 /* SDK.Target.Capability.Inspector */, autostart: true });
 //# sourceMappingURL=TargetDetachedDialog.js.map

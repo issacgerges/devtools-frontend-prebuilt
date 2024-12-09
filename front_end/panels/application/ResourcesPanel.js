@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
+import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as SourceFrame from '../../ui/legacy/components/source_frame/source_frame.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import resourcesPanelStyles from './resourcesPanel.css.js';
+import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import { ApplicationPanelSidebar, StorageCategoryView } from './ApplicationPanelSidebar.js';
 import { CookieItemsView } from './CookieItemsView.js';
-import { DatabaseQueryView } from './DatabaseQueryView.js';
-import { DatabaseTableView } from './DatabaseTableView.js';
 import { DOMStorageItemsView } from './DOMStorageItemsView.js';
+import resourcesPanelStyles from './resourcesPanel.css.js';
 import { StorageItemsView } from './StorageItemsView.js';
 let resourcesPanelInstance;
 export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
@@ -27,11 +27,12 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
     constructor() {
         super('resources');
         this.resourcesLastSelectedItemSetting =
-            Common.Settings.Settings.instance().createSetting('resourcesLastSelectedElementPath', []);
+            Common.Settings.Settings.instance().createSetting('resources-last-selected-element-path', []);
         this.visibleView = null;
         this.pendingViewPromise = null;
         this.categoryView = null;
         const mainContainer = new UI.Widget.VBox();
+        mainContainer.setMinimumSize(100, 0);
         this.storageViews = mainContainer.element.createChild('div', 'vbox flex-auto');
         this.storageViewToolbar = new UI.Toolbar.Toolbar('resources-toolbar', mainContainer.element);
         this.splitWidget().setMainWidget(mainContainer);
@@ -54,8 +55,6 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
             SourceFrame.ImageView.ImageView,
             SourceFrame.FontView.FontView,
             StorageItemsView,
-            DatabaseQueryView,
-            DatabaseTableView,
         ];
         return viewClassesToClose.some(type => view instanceof type);
     }
@@ -92,7 +91,7 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
         this.storageViewToolbar.removeToolbarItems();
         this.storageViewToolbar.element.classList.toggle('hidden', true);
         if (view instanceof UI.View.SimpleView) {
-            view.toolbarItems().then(items => {
+            void view.toolbarItems().then(items => {
                 items.map(item => this.storageViewToolbar.appendToolbarItem(item));
                 this.storageViewToolbar.element.classList.toggle('hidden', !items.length);
             });
@@ -111,6 +110,7 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
         if (!this.categoryView) {
             this.categoryView = new StorageCategoryView();
         }
+        this.categoryView.element.setAttribute('jslog', `${VisualLogging.pane().context(Platform.StringUtilities.toKebabCase(categoryName))}`);
         this.categoryView.setText(categoryName);
         this.categoryView.setLink(categoryLink);
         this.showView(this.categoryView);
@@ -145,7 +145,7 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
         if (!model) {
             return;
         }
-        model.clear(cookieDomain).then(() => {
+        void model.clear(cookieDomain).then(() => {
             if (this.cookieView) {
                 this.cookieView.refreshItems();
             }
@@ -156,70 +156,28 @@ export class ResourcesPanel extends UI.Panel.PanelWithSidebar {
         this.registerCSSFiles([resourcesPanelStyles]);
     }
 }
-let resourceRevealerInstance;
 export class ResourceRevealer {
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!resourceRevealerInstance || forceNew) {
-            resourceRevealerInstance = new ResourceRevealer();
-        }
-        return resourceRevealerInstance;
-    }
     async reveal(resource) {
-        if (!(resource instanceof SDK.Resource.Resource)) {
-            throw new Error('Internal error: not a resource');
-        }
         const sidebar = await ResourcesPanel.showAndGetSidebar();
         await sidebar.showResource(resource);
     }
 }
-let cookieReferenceRevealerInstance;
-export class CookieReferenceRevealer {
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!cookieReferenceRevealerInstance || forceNew) {
-            cookieReferenceRevealerInstance = new CookieReferenceRevealer();
-        }
-        return cookieReferenceRevealerInstance;
-    }
-    async reveal(cookie) {
-        if (!(cookie instanceof SDK.Cookie.CookieReference)) {
-            throw new Error('Internal error: not a cookie reference');
-        }
-        const sidebar = await ResourcesPanel.showAndGetSidebar();
-        await sidebar.cookieListTreeElement.select();
-        const contextUrl = cookie.contextUrl();
-        if (contextUrl && await this.revealByDomain(sidebar, contextUrl)) {
-            return;
-        }
-        // Fallback: try to reveal the cookie using its domain as context, which may not work, because the
-        // Application Panel shows cookies grouped by context, see crbug.com/1060563.
-        this.revealByDomain(sidebar, cookie.domain());
-    }
-    async revealByDomain(sidebar, domain) {
-        const item = sidebar.cookieListTreeElement.children().find(c => /** @type {!CookieTreeElement} */ c.cookieDomain().endsWith(domain));
-        if (item) {
-            await item.revealAndSelect();
-            return true;
-        }
-        return false;
-    }
-}
-let frameDetailsRevealerInstance;
 export class FrameDetailsRevealer {
-    static instance(opts = { forceNew: null }) {
-        const { forceNew } = opts;
-        if (!frameDetailsRevealerInstance || forceNew) {
-            frameDetailsRevealerInstance = new FrameDetailsRevealer();
-        }
-        return frameDetailsRevealerInstance;
-    }
     async reveal(frame) {
-        if (!(frame instanceof SDK.ResourceTreeModel.ResourceTreeFrame)) {
-            throw new Error('Internal error: not a frame');
-        }
         const sidebar = await ResourcesPanel.showAndGetSidebar();
         sidebar.showFrame(frame);
+    }
+}
+export class RuleSetViewRevealer {
+    async reveal(revealInfo) {
+        const sidebar = await ResourcesPanel.showAndGetSidebar();
+        sidebar.showPreloadingRuleSetView(revealInfo);
+    }
+}
+export class AttemptViewWithFilterRevealer {
+    async reveal(filter) {
+        const sidebar = await ResourcesPanel.showAndGetSidebar();
+        sidebar.showPreloadingAttemptViewWithFilter(filter);
     }
 }
 //# sourceMappingURL=ResourcesPanel.js.map

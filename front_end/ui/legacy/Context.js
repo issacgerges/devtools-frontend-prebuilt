@@ -17,6 +17,9 @@ export class Context {
         }
         return contextInstance;
     }
+    static removeInstance() {
+        contextInstance = undefined;
+    }
     setFlavor(flavorType, flavorValue) {
         const value = this.flavorsInternal.get(flavorType) || null;
         if (value === flavorValue) {
@@ -33,14 +36,14 @@ export class Context {
     dispatchFlavorChange(flavorType, flavorValue) {
         for (const extension of getRegisteredListeners()) {
             if (extension.contextTypes().includes(flavorType)) {
-                extension.loadListener().then(instance => instance.flavorChanged(flavorValue));
+                void extension.loadListener().then(instance => instance.flavorChanged(flavorValue));
             }
         }
         const dispatcher = this.eventDispatchers.get(flavorType);
         if (!dispatcher) {
             return;
         }
-        dispatcher.dispatchEventToListeners(Events.FlavorChanged, flavorValue);
+        dispatcher.dispatchEventToListeners("FlavorChanged" /* Events.FlavorChanged */, flavorValue);
     }
     addFlavorChangeListener(flavorType, listener, thisObject) {
         let dispatcher = this.eventDispatchers.get(flavorType);
@@ -48,15 +51,15 @@ export class Context {
             dispatcher = new Common.ObjectWrapper.ObjectWrapper();
             this.eventDispatchers.set(flavorType, dispatcher);
         }
-        dispatcher.addEventListener(Events.FlavorChanged, listener, thisObject);
+        dispatcher.addEventListener("FlavorChanged" /* Events.FlavorChanged */, listener, thisObject);
     }
     removeFlavorChangeListener(flavorType, listener, thisObject) {
         const dispatcher = this.eventDispatchers.get(flavorType);
         if (!dispatcher) {
             return;
         }
-        dispatcher.removeEventListener(Events.FlavorChanged, listener, thisObject);
-        if (!dispatcher.hasEventListeners(Events.FlavorChanged)) {
+        dispatcher.removeEventListener("FlavorChanged" /* Events.FlavorChanged */, listener, thisObject);
+        if (!dispatcher.hasEventListeners("FlavorChanged" /* Events.FlavorChanged */)) {
             this.eventDispatchers.delete(flavorType);
         }
     }
@@ -67,12 +70,6 @@ export class Context {
         return new Set(this.flavorsInternal.keys());
     }
 }
-// TODO(crbug.com/1167717): Make this a const enum again
-// eslint-disable-next-line rulesdir/const_enum
-var Events;
-(function (Events) {
-    Events["FlavorChanged"] = "FlavorChanged";
-})(Events || (Events = {}));
 const registeredListeners = [];
 export function registerListener(registration) {
     registeredListeners.push(registration);
